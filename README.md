@@ -6,7 +6,7 @@ A Plugable DMN wrapper API for Spark at row level
 
 Although [Quality](https://sparkutils.github.io/quality/) offers very high performance DQ and rule engines it's focus is more on auditability and speed then generality.  DMN offers generality as it's focus, sacrificing auditability (the user must provide it) and [performance](#performance) over the more narrowly focussed Quality.
 
-The aim of this project, is to enable a Spark first runtime for DMN processing allowing customisation of the runtime whilst abstracting from the underlying engine.
+The aim of this project is to enable a Spark first runtime for DMN processing, allowing customisation of the runtime whilst abstracting from the underlying engine.
 
 ## What it is
 
