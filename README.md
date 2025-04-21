@@ -28,14 +28,14 @@ It also has no opinion on DMN version support, the user of the library is abstra
 
 ## Performance
 
-The performance of DMN is dependent on it's engine but there are certain limitations that need be called out:
+The performance of DMN is dependent on it's engine but there are certain general limitations that need be called out:
 
-1. The DMN Engines do not operate part of Spark as with Quality
+1. The DMN Engines do not, unlike Quality, operate as part of Spark
     -    Compilation, even if provided, will not be inlined with WholeStageCodeGen
     -    Expressions used by FEEL cannot be optimised by Spark
     -    Serialisation overhead to the implementations input types may unavoidable (dmn-4-spark mitigates this as far as possible but Strings, Structs etc. will require converison)
 2. The startup cost of the DMN Engine is inescapable (it may not matter for your usecase)
-    -    Startup time is required for each executor core (this is only likely significant for small datasets / streaming)
+    -    Startup time is required for each executor core (this is only likely significant for small datasets / streaming with tight SLAs)
     -    dmn-4-spark attempts to mitigate this by caching implementating Engine runtimes (provided they are thread safe)
     -    dynamic clusters will recreate this runtime for each core used (Spark partition)
 
