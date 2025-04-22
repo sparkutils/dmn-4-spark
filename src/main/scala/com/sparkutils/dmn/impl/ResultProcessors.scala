@@ -1,5 +1,6 @@
-package com.sparkutils.dmn
+package com.sparkutils.dmn.impl
 
+import com.sparkutils.dmn.DMNResultProvider
 import org.apache.spark.sql.types.{ArrayType, BooleanType, DataType}
 
 trait SeqOfBools extends DMNResultProvider {

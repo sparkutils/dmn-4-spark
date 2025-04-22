@@ -1,15 +1,12 @@
 package com.sparkutils.dmn
 
-import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
-import org.apache.spark.sql.{Column, ShimUtils}
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
-import org.apache.spark.sql.catalyst.expressions.{Expression, UnaryExpression}
 import org.apache.spark.sql.types.{DataType, ObjectType}
-import org.apache.spark.unsafe.types.UTF8String
+import org.apache.spark.sql.{Column, ShimUtils, functions}
 
-import java.io.{ByteArrayInputStream, InputStreamReader}
-import java.nio.charset.StandardCharsets
+import java.util.ServiceLoader
 import scala.collection.immutable.{IndexedSeq, Seq}
 
 
@@ -26,12 +23,36 @@ case class DMNFile(locationURI: String, bytes: Array[Byte]) extends Serializable
  * @param name
  * @param namespace
  * @param service optional, when not provided or supported by the engine executeAll will be used
+ * @param resultProvider a string representation of the provider (typically DDL, but implementations may process this differently)
  */
-case class DMNModelService(name: String, namespace: String, service: Option[String]) extends Serializable
+case class DMNModelService(name: String, namespace: String, service: Option[String], resultProvider: String) extends Serializable
 
-trait DMNContextProvider
+/**
+ * An individual input field necessary for constructing the DMNContext
+ * @param fieldExpression an sql expression (could be the input field name or more complex expressions, or implementation specific) producing the input value for this provider
+ * @param providerType the type of the input provider (JSON, DDL, or an implementation specific classname)
+ * @param contextPath a string representation of the DMNContextPath to store the results in (implementation specific)
+ */
+case class DMNInputField(fieldExpression: String, providerType: String, contextPath: String) extends Serializable {
+  /**
+   * Implementations are free to chose a different parsing approach for the fieldExpression
+   * @return
+   */
+  def defaultExpr: Expression = ShimUtils.expression( functions.expr(fieldExpression) )
+}
 
-case class DMNException(message: String, cause: Throwable) extends RuntimeException(message, cause)
+/**
+ * A provider for DMN Context injection
+ */
+trait DMNContextProvider[R] extends Expression {
+  val contextPath: DMNContextPath
+
+  override def dataType: DataType = ObjectType(classOf[(DMNContextPath, R)])
+}
+
+case class DMNException(message: String, cause: Throwable) extends RuntimeException(message, cause) {
+  def this(message: String) = this(message, null)
+}
 
 /**
  * Represents a DMN Result from an engine
@@ -83,9 +104,34 @@ trait DMNRepository extends Serializable {
    * @return
    */
   def supportsDecisionService: Boolean
+
+  /**
+   * Implementation specific providers, usually managed by the dmnEval function.
+   * Note at time of calling the source Expression will not be resolved.
+   *
+   * @param inputField
+   * @return Either the provider type or throws for an unknown type
+   */
+  def providerForType(inputField: DMNInputField): DMNContextProvider[_]
+
+  /**
+   * Implementation specific result provider
+   * @param resultProviderType typically DDL
+   * @return
+   */
+  def resultProviderForType(resultProviderType: String): DMNResultProvider
 }
 
+/**
+ * Represents an execution context for the DMN engine, the "input" for decisions
+ */
 trait DMNContext {
+  /**
+   * Implementation specific management of context
+   *
+   * @param path
+   * @param data
+   */
   def set(path: DMNContextPath, data: Any): Unit
 }
 
@@ -147,16 +193,37 @@ trait DMNExpression extends Expression with CodegenFallback {
 
 }
 
+/**
+ * Represents a complete set of information necessary for DMN execution
+ * @param dmnFiles the dmn modules to be loaded
+ * @param model the model to execute (with or without DecisionService) and the return processing
+ * @param contextProviders the fields to inject into the DMN Context
+ */
+case class DMNExecution(dmnFiles: Seq[DMNFile], model: DMNModelService, contextProviders: Seq[DMNInputField])
+
 object DMN {
-  def dmn(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Column], resultProvider: DMNResultProvider): Column =
+  def dmnEval(dmnExecution: DMNExecution): Column = {
+    import dmnExecution._
+
+    val serviceLoader = ServiceLoader.load(classOf[DMNRepository])
+    val itr = serviceLoader.iterator()
+    if (!itr.hasNext) {
+      throw new DMNException("No ServiceProvider found for DMNRepository")
+    }
+
+    val dmnRepository = itr.next()
+    val children = contextProviders.map(dmnRepository.providerForType)
+    val resultProvider = dmnRepository.resultProviderForType(model.resultProvider)
+
     if (model.service.isDefined && dmnRepository.supportsDecisionService)
-      ShimUtils.column(DMNDecisionService(dmnRepository, dmnFiles, model, children.map(ShimUtils.expression), resultProvider))
+      ShimUtils.column(DMNDecisionService(dmnRepository, dmnFiles, model, children, resultProvider))
     else
-      ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, children.map(ShimUtils.expression), resultProvider))
+      ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, children, resultProvider))
+  }
 }
 
 private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression], resultProvider: DMNResultProvider) extends DMNExpression {
-  assert(children.forall(_.isInstanceOf[DMNContextProvider]), "Input children must be DMNContextProvider's")
+  assert(children.forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
 
   protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): Expression = copy(children = newChildren)
 
@@ -164,7 +231,7 @@ private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Se
 }
 
 private case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression], resultProvider: DMNResultProvider) extends DMNExpression {
-  assert(children.forall(_.isInstanceOf[DMNContextProvider]), "Input children must be DMNContextProvider's")
+  assert(children.forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
 
   protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): Expression = copy(children = newChildren)
 
