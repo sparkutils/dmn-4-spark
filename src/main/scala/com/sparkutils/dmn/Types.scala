@@ -163,7 +163,7 @@ trait DMNExpression extends Expression with CodegenFallback {
   lazy val dmnRuntime: DMNRuntime = dmnRepository.dmnRuntimeFor(dmnFiles)
 
   @transient
-  lazy val contextProviders: Seq[Expression] = children.dropRight(1)
+  lazy val contextProviders: Seq[Expression] = children.dropRight(1).toVector
 
   @transient
   lazy val dmnModel = dmnRuntime.getModel(model.name, model.namespace) // the example pages show context outside of loops, we can re share it for a partition
@@ -224,16 +224,17 @@ private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Se
   assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
   assert(children.last.isInstanceOf[DMNContextProvider[_]], "Last child must be a DMNResultProvider")
 
-  protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): Expression = copy(children = newChildren)
+  protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
 
   override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateDecisionService(ctx, model.service.get)
+
 }
 
 private case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression]) extends DMNExpression {
   assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
   assert(children.last.isInstanceOf[DMNContextProvider[_]], "Last child must be a DMNResultProvider")
 
-  protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): Expression = copy(children = newChildren)
+  protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
 
   override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateAll(ctx)
 }
