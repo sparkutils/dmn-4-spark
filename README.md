@@ -26,6 +26,41 @@ An actual DMN engine, this must be provided via an API implementation, currently
 
 It also has no opinion on DMN version support, the user of the library is abstracted from the engine choice but that engine choice is still the determining factor of DMN version support.
 
+## How to use
+
+Depend upon an implementation e.g. [kogito-4-spark](https://github.com/sparkutils/kogito-4-spark) using the same approach as [shim](https://sparkutils.github.io/shim/) and [Quality](https://sparkutils.github.io/quality/) each runtime must be specified.
+
+If you typically build on OSS but deploy to other runtimes the approach is therefore (for maven):
+
+```xml
+<properties>
+    <kogito4SparkVersion>0.1.3</kogito4SparkVersion>
+    <kogito4SparkTestPrefix>3.4.1.oss_</kogito4SparkTestPrefix>
+    <kogito4SparkRuntimePrefix>13.1.dbr_</kogito4SparkRuntimePrefix>
+    <sparkShortVersion>3.4</sparkShortVersion>
+    <scalaCompatVersion>2.12</scalaCompatVersion>    
+</properties>
+
+<dependencies>
+    <dependency>
+        <groupId>com.sparkutils.</groupId>
+        <artifactId>kogito-4-spark_${kogito4SparkTestPrefix}${sparkShortVersion}_${scalaCompatVersion}</artifactId>
+        <version>${kogito4SparkVersion}</version>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>com.sparkutils</groupId>
+        <artifactId>kogito-4-spark_${kogito4SparkRuntimePrefix}${sparkShortVersion}_${scalaCompatVersion}</artifactId>
+        <version>${kogito4SparkVersion}</version>
+        <scope>compile</scope>
+    </dependency>
+</dependencies>
+```
+
+The "." at the end of the group id on the kogito4SparkTestPrefix is not a mistake and allows two versions of the same library to be used for different scopes.  It is not advised to develop on a different version of Spark/Scala than you deploy to.
+
+Please refer to the implementation documentation for supported runtimes.
+
 ## Performance
 
 The performance of DMN is dependent on it's engine but there are certain general limitations that need be called out:
