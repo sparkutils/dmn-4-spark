@@ -87,7 +87,7 @@ trait DMNModel {
 }
 
 /**
- * Represents a repository of DMN, this is the actual root provider
+ * Represents a repository of DMN, implementations must provide the SPI
  */
 trait DMNRepository extends Serializable {
   /**
