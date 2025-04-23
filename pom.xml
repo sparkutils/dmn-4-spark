@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>  <!-- rebuild -->
 
     <groupId>com.sparkutils</groupId>
-    <artifactId>dmn-4-spark_${sparkCompatVersion}_${scalaCompatVersion}</artifactId>
+    <artifactId>dmn-4-spark_${dbrCompatVersion}${sparkCompatVersion}_${scalaCompatVersion}</artifactId>
 
     <packaging>jar</packaging>
     <version>${revision}</version>
@@ -414,7 +414,7 @@
     </profiles>
 
     <properties>
-        <revision>0.0.1-RC1</revision>
+        <revision>0.0.1-RC2</revision>
 
         <mavenFlattenPluginVersion>1.2.7</mavenFlattenPluginVersion>
         <mavenProjectInfoReportsPluginVersion>3.4.5</mavenProjectInfoReportsPluginVersion>
