@@ -67,14 +67,12 @@ trait DMNContextPath {
 }
 
 /**
- * A processor of a DMNResult
+ * A processor of a DMNResult.  They must be Expressions so any children (e.g. serializers) may be resolved.
+ * The expressions cannot implement CodgenFallback as eval will not be called.
  */
-trait DMNResultProvider {
+trait DMNResultProvider extends Expression {
   def process(dmnResult: DMNResult): Any
 
-  def dataType: DataType
-
-  def nullable: Boolean
 }
 
 /**
@@ -159,13 +157,13 @@ trait DMNExpression extends Expression with CodegenFallback {
   def dmnFiles: Seq[DMNFile]
   def model: DMNModelService
 
-  def resultProvider: DMNResultProvider
+  lazy val resultProvider: DMNResultProvider = children.last.asInstanceOf[DMNResultProvider]
 
   @transient
   lazy val dmnRuntime: DMNRuntime = dmnRepository.dmnRuntimeFor(dmnFiles)
 
-  //@transient
-  //lazy val ctx = dmnRuntime.newContext() // the example pages show context outside of loops, we can re share it for a partition
+  @transient
+  lazy val contextProviders: Seq[Expression] = children.dropRight(1)
 
   @transient
   lazy val dmnModel = dmnRuntime.getModel(model.name, model.namespace) // the example pages show context outside of loops, we can re share it for a partition
@@ -176,7 +174,7 @@ trait DMNExpression extends Expression with CodegenFallback {
 
   override def eval(input: InternalRow): Any = {
     val ctx = dmnRuntime.context()
-    children.foreach { child =>
+    contextProviders.foreach { child =>
       val res = child.eval(input)
       if (res != null) {
         val (contextPath: DMNContextPath, testData: Any) = res
@@ -216,22 +214,24 @@ object DMN {
     val resultProvider = dmnRepository.resultProviderForType(model.resultProvider)
 
     if (model.service.isDefined && dmnRepository.supportsDecisionService)
-      ShimUtils.column(DMNDecisionService(dmnRepository, dmnFiles, model, children, resultProvider))
+      ShimUtils.column(DMNDecisionService(dmnRepository, dmnFiles, model, children :+ resultProvider))
     else
-      ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, children, resultProvider))
+      ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, children :+ resultProvider))
   }
 }
 
-private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression], resultProvider: DMNResultProvider) extends DMNExpression {
-  assert(children.forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
+private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression]) extends DMNExpression {
+  assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
+  assert(children.last.isInstanceOf[DMNContextProvider[_]], "Last child must be a DMNResultProvider")
 
   protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): Expression = copy(children = newChildren)
 
   override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateDecisionService(ctx, model.service.get)
 }
 
-private case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression], resultProvider: DMNResultProvider) extends DMNExpression {
-  assert(children.forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
+private case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression]) extends DMNExpression {
+  assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
+  assert(children.last.isInstanceOf[DMNContextProvider[_]], "Last child must be a DMNResultProvider")
 
   protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): Expression = copy(children = newChildren)
 
