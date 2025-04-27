@@ -61,6 +61,37 @@ The "." at the end of the group id on the kogito4SparkTestPrefix is not a mistak
 
 Please refer to the implementation documentation for supported runtimes.
 
+## Result types
+
+As DMN can return anything, which the api supports, there are two key issues in usage:
+
+### Multiple Result Types
+
+If, when using evaluateAll semantics, you have multiple return types each of them can be different.  In order to write out exact types the result provider DDL must be a struct with each result type under the appropriate decision name. e.g. for a Kogito result:
+
+```json
+[{
+   "decisionName": "booleanEval",
+   "result": [true, false, true]
+},
+{
+   "decisionName": "message",
+   "result": "it's great"
+}]
+```
+
+The result ddl would be:
+
+```ddl
+struct< booleanEval: array<boolean>, message: string >
+```
+
+This allows the engines to process multiple results with the correct types when stored as types.
+
+### Changing of types
+
+Spark 4 may offer (TBD) an approach with Variant types to allow type evolution or changing but for 3.5 usage you must ensure your data types do not change in production, the library cannot manage this for you.
+
 ## Performance
 
 The performance of DMN is dependent on it's engine but there are certain general limitations that need be called out:

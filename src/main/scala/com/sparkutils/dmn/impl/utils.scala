@@ -21,15 +21,16 @@ object utils {
     }.fold(t => throw DMNException(s"Could not loadUnaryContextProvider $className", t), t => t)
 
   /**
-   * Called by implementations as a fallback extension method.  Expects a no-arg class
-   * @param className
+   * Called by implementations as a fallback extension method.  Expects a single-arg class (debug: Boolean)
+   * @param className fully qualified className
+   * @param debug the single arg passed to the constructor of className
    * @return
    */
-  def loadResultProvider(className: String): DMNResultProvider = (
+  def loadResultProvider(className: String, debug: Boolean): DMNResultProvider = (
     for {
       clazz <- Try(this.getClass.getClassLoader.loadClass(className))
-      constructor <- Try(clazz.getConstructor())
-      constructed <- Try(constructor.newInstance().asInstanceOf[DMNResultProvider])
+      constructor <- Try(clazz.getConstructor(classOf[Boolean]))
+      constructed <- Try(constructor.newInstance(debug.asInstanceOf[java.lang.Boolean]).asInstanceOf[DMNResultProvider])
       provider = constructed
     } yield
       provider

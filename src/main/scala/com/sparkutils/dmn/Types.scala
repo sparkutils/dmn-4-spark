@@ -92,10 +92,11 @@ trait DMNModel {
 trait DMNRepository extends Serializable {
   /**
    * Throws DMNException if it can't be constructed
-   * @param dmnFiles
+   * @param dmnFiles the complete set of DMNFiles to load
+   * @param configuration options passed from the DMNExecution
    * @return
    */
-  def dmnRuntimeFor(dmnFiles: Seq[DMNFile]): DMNRuntime
+  def dmnRuntimeFor(dmnFiles: Seq[DMNFile], configuration: DMNConfiguration): DMNRuntime
 
   /**
    * The engine may not support calling decision services, evaluation will fall back to "evaluateAll" on the model
@@ -107,17 +108,22 @@ trait DMNRepository extends Serializable {
    * Implementation specific providers, usually managed by the dmnEval function.
    * Note at time of calling the source Expression will not be resolved.
    *
-   * @param inputField
+   * @param inputField the configured input field from the DMNExecution
+   * @param debug enable an implementation specific debug mode
+   * @param configuration options passed from the DMNExecution
    * @return Either the provider type or throws for an unknown type
    */
-  def providerForType(inputField: DMNInputField): DMNContextProvider[_]
+  def providerForType(inputField: DMNInputField, debug: Boolean, configuration: DMNConfiguration): DMNContextProvider[_]
 
   /**
    * Implementation specific result provider
-   * @param resultProviderType typically DDL
+   * @param resultProviderType typically DDL of the result type.  This must be a struct with each of the possible decision names
+   *                           entered against their types.
+   * @param debug enable an implementation specific debug mode
+   * @param configuration options passed from the DMNExecution
    * @return
    */
-  def resultProviderForType(resultProviderType: String): DMNResultProvider
+  def resultProviderForType(resultProviderType: String, debug: Boolean, configuration: DMNConfiguration): DMNResultProvider
 }
 
 /**
@@ -157,10 +163,14 @@ trait DMNExpression extends Expression with CodegenFallback {
   def dmnFiles: Seq[DMNFile]
   def model: DMNModelService
 
+  def configuration: DMNConfiguration
+
+  def debug: Boolean
+
   lazy val resultProvider: DMNResultProvider = children.last.asInstanceOf[DMNResultProvider]
 
   @transient
-  lazy val dmnRuntime: DMNRuntime = dmnRepository.dmnRuntimeFor(dmnFiles)
+  lazy val dmnRuntime: DMNRuntime = dmnRepository.dmnRuntimeFor(dmnFiles, configuration)
 
   @transient
   lazy val contextProviders: Seq[Expression] = children.dropRight(1).toVector
@@ -192,35 +202,54 @@ trait DMNExpression extends Expression with CodegenFallback {
 }
 
 /**
+ * Represents any execution specific configuration
+ * @param options an implementation specific encoding of options, provided to all repository functions and execution
+ */
+case class DMNConfiguration(options: String) extends Serializable
+
+/**
  * Represents a complete set of information necessary for DMN execution
  * @param dmnFiles the dmn modules to be loaded
  * @param model the model to execute (with or without DecisionService) and the return processing
  * @param contextProviders the fields to inject into the DMN Context
+ * @param options an implementation specific encoding of options, provided to all repository functions and execution
  */
-case class DMNExecution(dmnFiles: Seq[DMNFile], model: DMNModelService, contextProviders: Seq[DMNInputField])
+case class DMNExecution(dmnFiles: Seq[DMNFile], model: DMNModelService,
+                        contextProviders: Seq[DMNInputField], configuration: DMNConfiguration) extends Serializable
 
 object DMN {
-  def dmnEval(dmnExecution: DMNExecution): Column = {
-    import dmnExecution._
 
+  lazy val dmnRepository: DMNRepository = {
     val serviceLoader = ServiceLoader.load(classOf[DMNRepository])
     val itr = serviceLoader.iterator()
     if (!itr.hasNext) {
       throw new DMNException("No ServiceProvider found for DMNRepository")
     }
 
-    val dmnRepository = itr.next()
-    val children = contextProviders.map(dmnRepository.providerForType)
-    val resultProvider = dmnRepository.resultProviderForType(model.resultProvider)
+    val repo = itr.next()
+    repo
+  }
+
+  /**
+   * Runs the dmnExecution with an optional implementation specific debug mode
+   * @param dmnExecution The collection of dmn files, providers, model and options
+   * @param debug An implementation specific debug flag passed to the DMNResultProvider
+   * @return
+   */
+  def dmnEval(dmnExecution: DMNExecution, debug: Boolean = false): Column = {
+    import dmnExecution._
+
+    val children = contextProviders.map(p => dmnRepository.providerForType(p, debug, configuration))
+    val resultProvider = dmnRepository.resultProviderForType(model.resultProvider, debug, configuration)
 
     if (model.service.isDefined && dmnRepository.supportsDecisionService)
-      ShimUtils.column(DMNDecisionService(dmnRepository, dmnFiles, model, children :+ resultProvider))
+      ShimUtils.column(DMNDecisionService(dmnRepository, dmnFiles, model, configuration, debug, children :+ resultProvider))
     else
-      ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, children :+ resultProvider))
+      ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, configuration, debug, children :+ resultProvider))
   }
 }
 
-private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression]) extends DMNExpression {
+private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
   assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
   assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
 
@@ -230,7 +259,7 @@ private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Se
 
 }
 
-private case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, children: Seq[Expression]) extends DMNExpression {
+private case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
   assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
   assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
 

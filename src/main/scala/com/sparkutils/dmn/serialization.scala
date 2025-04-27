@@ -9,6 +9,7 @@ object serialization {
 
   // TODO are providers ever needing to be ordered?
 
+  type VersionedConfiguration = Versioned[DMNConfiguration]
   type VersionedExecution = Versioned[DMNExecution]
   type VersionedModelService = Versioned[DMNModelService]
   type VersionedFiles = Versioned[DMNFile]
@@ -46,6 +47,19 @@ object serialization {
         ).as("what")
       ).as[VersionedFiles]
 
+  def readVersionedConfigurationDF(df: DataFrame,
+                               ruleSuiteId: Column,
+                               ruleSuiteVersion: Column,
+                               options: Column
+                              )(implicit enc: Encoder[VersionedConfiguration]):
+  Dataset[VersionedConfiguration] =
+    df.select(ruleSuiteId.as("id"),
+      ruleSuiteVersion.as("version"),
+      functions.struct(
+        options.as("options")
+      ).as("what")
+    ).as[VersionedConfiguration]
+
   def readVersionedModelServicesFromDF(df: DataFrame,
                                ruleSuiteId: Column,
                                ruleSuiteVersion: Column,
@@ -68,7 +82,8 @@ object serialization {
   def readVersionedExecutionsFromDF(
                                   files: Dataset[VersionedFiles],
                                   models: Dataset[VersionedModelService],
-                                  inputs: Dataset[VersionedProviders]
+                                  inputs: Dataset[VersionedProviders],
+                                  configuration: Dataset[VersionedConfiguration]
                                  )(implicit enc: Encoder[VersionedExecution]):
     Dataset[VersionedExecution] =
       files.select("id", "version").distinct().join(
@@ -80,7 +95,10 @@ object serialization {
       ).join(
         inputs.groupBy(col("id").as("pid"), col("version").as("pv")).agg(collect_set("what").as("contextProviders")),
         col("id") === col("pid") && col("version") === col("pv")
-      ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders")).as("what"))
+      ).join(
+        configuration.selectExpr("what configuration", "id cid", "version cv"),
+        col("id") === col("cid") && col("version") === col("cv")
+      ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders"), col("configuration")).as("what"))
         .as[VersionedExecution]
 
 }

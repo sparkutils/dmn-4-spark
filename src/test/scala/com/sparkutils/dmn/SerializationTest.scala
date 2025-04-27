@@ -47,6 +47,11 @@ class SerializationTest extends FunSuite with Matchers {
     f1.map(Versioned(1,1, _)) ++
       f2.map(Versioned(3,1, _))
 
+  val c1 = DMNConfiguration("1")
+  val c2 = DMNConfiguration("2")
+
+  val configs = Seq(c1, c2)
+
   implicit class DMNFileOps(f: Seq[DMNFile]) {
     def arr = f.map(f => (f.locationURI, f.bytes.toSeq)).toSet
   }
@@ -56,13 +61,15 @@ class SerializationTest extends FunSuite with Matchers {
     val ps = providers.toDS.selectExpr("id pid", "version pver", "what.*")
     val ms = models.toDS.selectExpr("id mid", "version mver", "what.*")
     val fs = files.toDS.selectExpr("id fid", "version fver", "what.*")
+    val cs = configs.toDS.selectExpr("id cid", "version cver", "what.*")
 
     import serialization._
     val vfs = readVersionedFilesFromDF(fs, col("fid"), col("fver"), col("locationURI"), col("bytes"))
     val vms = readVersionedModelServicesFromDF(ms, col("mid"), col("mver"), col("name"), col("namespace"), col("service"), col("resultProvider"))
     val vps = readVersionedProvidersFromDF(ps, col("pid"), col("pver"), col("fieldExpression"), col("providerType"), col("contextPath"))
+    val cps = readVersionedConfigurationDF(ps, col("cid"), col("cver"), col("options"))
 
-    val execs = readVersionedExecutionsFromDF(vfs, vms, vps)
+    val execs = readVersionedExecutionsFromDF(vfs, vms, vps, cps)
     execs.count shouldBe 2
     val e1 = execs.filter("id = 1 and version = 1").collect().head
     val e2 = execs.filter("id = 3 and version = 1").collect().head
@@ -70,9 +77,11 @@ class SerializationTest extends FunSuite with Matchers {
     e1.what.dmnFiles.arr shouldBe f1.arr
     e1.what.model shouldBe m1
     e1.what.contextProviders.toSet shouldBe pseq1.toSet
+    e1.what.configuration shouldBe c1
 
     e2.what.dmnFiles.arr shouldBe f2.arr
     e2.what.model shouldBe m2
     e2.what.contextProviders.toSet shouldBe pseq2.toSet
+    e2.what.configuration shouldBe c2
   }
 }
