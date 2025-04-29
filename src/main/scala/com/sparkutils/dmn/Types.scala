@@ -207,15 +207,20 @@ trait DMNExpression extends Expression with CodegenFallback {
  */
 case class DMNConfiguration(options: String) extends Serializable
 
+object DMNConfiguration {
+  val empty: DMNConfiguration = DMNConfiguration("")
+}
+
 /**
  * Represents a complete set of information necessary for DMN execution
  * @param dmnFiles the dmn modules to be loaded
  * @param model the model to execute (with or without DecisionService) and the return processing
  * @param contextProviders the fields to inject into the DMN Context
- * @param options an implementation specific encoding of options, provided to all repository functions and execution
+ * @param configuration an implementation specific encoding of options, provided to all repository functions and execution
  */
 case class DMNExecution(dmnFiles: Seq[DMNFile], model: DMNModelService,
-                        contextProviders: Seq[DMNInputField], configuration: DMNConfiguration) extends Serializable
+                        contextProviders: Seq[DMNInputField],
+                        configuration: DMNConfiguration = DMNConfiguration.empty) extends Serializable
 
 object DMN {
 

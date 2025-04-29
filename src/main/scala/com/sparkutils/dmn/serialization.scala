@@ -1,6 +1,6 @@
 package com.sparkutils.dmn
 
-import org.apache.spark.sql.functions.{col, collect_set, first, struct}
+import org.apache.spark.sql.functions.{col, collect_set, expr, first, struct}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Encoder, functions}
 
 case class Versioned[T](id: Int, version: Int, what: T)
@@ -99,6 +99,25 @@ object serialization {
         configuration.selectExpr("what configuration", "id cid", "version cv"),
         col("id") === col("cid") && col("version") === col("cv")
       ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders"), col("configuration")).as("what"))
+        .as[VersionedExecution]
+
+
+  def readVersionedExecutionsFromDF(
+                                     files: Dataset[VersionedFiles],
+                                     models: Dataset[VersionedModelService],
+                                     inputs: Dataset[VersionedProviders]
+                                   )(implicit enc: Encoder[VersionedExecution]):
+    Dataset[VersionedExecution] =
+      files.select("id", "version").distinct().join(
+          files.groupBy(col("id").as("fid"), col("version").as("fv")).agg(collect_set("what").as("dmnFiles")),
+          col("id") === col("fid") && col("version") === col("fv")
+        ).join(
+          models.groupBy(col("id").as("mid"), col("version").as("mv")).agg(first("what").as("model")),
+          col("id") === col("mid") && col("version") === col("mv")
+        ).join(
+          inputs.groupBy(col("id").as("pid"), col("version").as("pv")).agg(collect_set("what").as("contextProviders")),
+          col("id") === col("pid") && col("version") === col("pv")
+        ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders"), expr("named_struct('options', '') configuration")).as("what"))
         .as[VersionedExecution]
 
 }
