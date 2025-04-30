@@ -19,7 +19,7 @@ trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with DMNCo
   /**
    * Eval path to process the input stream
    */
-  def readValue(str: InputStreamReader): R
+  def readValue(str: String): R
 
   /**
    * Codegen gen path
@@ -32,14 +32,15 @@ trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with DMNCo
 
   override def nullSafeEval(input: Any): Any = {
     val i = input.asInstanceOf[UTF8String]
-    val bb = i.getByteBuffer // handles the size of issues
+    val istr = i.toString
+    /*val bb = i.getByteBuffer // handles the size of issues
     assert(bb.hasArray)
 
     val bain = new ByteArrayInputStream(
       bb.array(), bb.arrayOffset() + bb.position(), bb.remaining())
 
     val istr = new InputStreamReader(bain, StandardCharsets.UTF_8)
-
+*/
     // assuming it's quicker than using classes
     val r = // bytes is a couple of percents slower mapper.readValue(bb.array(), bb.arrayOffset() + bb.position(), bb.remaining(), classOf[java.util.Map[String, Object]])
       readValue(istr)
@@ -53,11 +54,13 @@ trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with DMNCo
 
     nullSafeCodeGen(ctx, ev, childName =>
     s"""
+        /*
       ${classOf[ByteBuffer].getName} bb = ${childName}.getByteBuffer();
       ${classOf[ByteArrayInputStream].getName} bain = new ${classOf[ByteArrayInputStream].getName}(
         bb.array(), bb.arrayOffset() + bb.position(), bb.remaining());
       ${classOf[InputStreamReader].getName} istr = new ${classOf[InputStreamReader].getName}(bain, ${classOf[StandardCharsets].getName}.UTF_8);
-
+       */
+      String istr = $childName.toString();
       try {
         ${ev.value} = new scala.Tuple2<$ctxClassName, $rClassName>( $contextPath,
           ${codeGen("istr", ctx)});
