@@ -1,14 +1,13 @@
 package com.sparkutils.dmn
 
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
-import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
+import org.apache.spark.sql.catalyst.expressions.codegen.CodegenContext
 import org.apache.spark.sql.types.{DataType, ObjectType}
 import org.apache.spark.sql.{Column, ShimUtils, functions}
 
 import java.util.ServiceLoader
-import scala.collection.immutable.{IndexedSeq, Seq}
-
+import scala.collection.immutable.Seq
+import impl.{DMNDecisionService, DMNEvaluateAll}
 
 /**
  * Represents a DMN file, could have been on disk or from a database etc.
@@ -47,7 +46,28 @@ case class DMNInputField(fieldExpression: String, providerType: String, contextP
 trait DMNContextProvider[R] extends Expression {
   val contextPath: DMNContextPath
 
+  /**
+   * Result class type
+   */
+  val resultType: Class[R]
+
+
   override def dataType: DataType = ObjectType(classOf[(DMNContextPath, R)])
+
+  /**
+   * Returns (DMNContext class name, contextPath Variable)
+   */
+  def genContext(ctx: CodegenContext): (String, String) = {
+    ctx.references += this
+    val dmnProviderClassName = classOf[DMNContextProvider[_]].getName
+    val dmnContextClassName = classOf[DMNContextPath].getName
+
+    val dmnExprIdx = ctx.references.size - 1
+    val contextPath = ctx.addMutableState(dmnContextClassName, ctx.freshName("contextPath"),
+      v => s"$v = ($dmnContextClassName)((($dmnProviderClassName)references" +
+        s"[$dmnExprIdx]).contextPath());")
+    (dmnContextClassName, contextPath)
+  }
 }
 
 case class DMNException(message: String, cause: Throwable) extends RuntimeException(message, cause) {
@@ -68,7 +88,8 @@ trait DMNContextPath {
 
 /**
  * A processor of a DMNResult.  They must be Expressions so any children (e.g. serializers) may be resolved.
- * The expressions cannot implement CodgenFallback as eval will not be called.
+ * The expressions should implement CodgenFallback if they cannot perform codegen (although only process will be called).
+ * If codegen is possible they must accept a local variable 'dmnResult'
  */
 trait DMNResultProvider extends Expression {
   def process(dmnResult: DMNResult): Any
@@ -156,51 +177,6 @@ trait DMNRuntime {
   def context(): DMNContext
 }
 
-trait DMNExpression extends Expression with CodegenFallback {
-
-  def dmnRepository: DMNRepository
-
-  def dmnFiles: Seq[DMNFile]
-  def model: DMNModelService
-
-  def configuration: DMNConfiguration
-
-  def debug: Boolean
-
-  lazy val resultProvider: DMNResultProvider = children.last.asInstanceOf[DMNResultProvider]
-
-  @transient
-  lazy val dmnRuntime: DMNRuntime = dmnRepository.dmnRuntimeFor(dmnFiles, configuration)
-
-  @transient
-  lazy val contextProviders: Seq[Expression] = children.dropRight(1).toVector
-
-  @transient
-  lazy val dmnModel = dmnRuntime.getModel(model.name, model.namespace) // the example pages show context outside of loops, we can re share it for a partition
-
-  override def dataType: DataType = resultProvider.dataType
-
-  def evaluate(ctx: DMNContext): DMNResult
-
-  override def eval(input: InternalRow): Any = {
-    val ctx = dmnRuntime.context()
-    contextProviders.foreach { child =>
-      val res = child.eval(input)
-      if (res != null) {
-        val (contextPath: DMNContextPath, testData: Any) = res
-        ctx.set(contextPath, testData)
-      }
-    }
-
-    val dmnRes = evaluate(ctx)
-    val res = resultProvider.process(dmnRes)
-    res
-  }
-
-  override def nullable: Boolean = resultProvider.nullable
-
-}
-
 /**
  * Represents any execution specific configuration
  * @param options an implementation specific encoding of options, provided to all repository functions and execution
@@ -252,23 +228,4 @@ object DMN {
     else
       ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, configuration, debug, children :+ resultProvider))
   }
-}
-
-private case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
-  assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
-  assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
-
-  protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
-
-  override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateDecisionService(ctx, model.service.get)
-
-}
-
-private case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
-  assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
-  assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
-
-  protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
-
-  override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateAll(ctx)
 }
