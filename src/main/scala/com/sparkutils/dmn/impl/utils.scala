@@ -3,7 +3,6 @@ package com.sparkutils.dmn.impl
 import com.sparkutils.dmn.{DMNConfiguration, DMNContextPath, DMNContextProvider, DMNException, DMNResultProvider}
 import org.apache.spark.sql.catalyst.expressions.Expression
 
-import java.lang.reflect.Constructor
 import scala.util.Try
 
 object utils {

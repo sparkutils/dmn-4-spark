@@ -1,14 +1,10 @@
 package com.sparkutils.dmn.impl
 
 import com.sparkutils.dmn.{DMNContextPath, DMNContextProvider}
-import org.apache.spark.sql.catalyst.expressions.codegen.Block.BlockHelper
-import org.apache.spark.sql.catalyst.expressions.codegen.{CodeGenerator, CodegenContext, CodegenFallback, ExprCode}
+import org.apache.spark.sql.catalyst.expressions.codegen.{CodeGenerator, CodegenContext, ExprCode}
 import org.apache.spark.sql.catalyst.expressions.{Expression, UnaryExpression}
 import org.apache.spark.unsafe.types.UTF8String
 
-import java.io.{ByteArrayInputStream, InputStreamReader}
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
 import scala.reflect.{ClassTag, classTag}
 
 /**
@@ -33,14 +29,7 @@ trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with DMNCo
   override def nullSafeEval(input: Any): Any = {
     val i = input.asInstanceOf[UTF8String]
     val istr = i.toString
-    /*val bb = i.getByteBuffer // handles the size of issues
-    assert(bb.hasArray)
 
-    val bain = new ByteArrayInputStream(
-      bb.array(), bb.arrayOffset() + bb.position(), bb.remaining())
-
-    val istr = new InputStreamReader(bain, StandardCharsets.UTF_8)
-*/
     // assuming it's quicker than using classes
     val r = // bytes is a couple of percents slower mapper.readValue(bb.array(), bb.arrayOffset() + bb.position(), bb.remaining(), classOf[java.util.Map[String, Object]])
       readValue(istr)
@@ -52,18 +41,14 @@ trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with DMNCo
     val (ctxClassName, contextPath) = genContext(ctx)
     val rClassName = resultType.getName
 
+    val istr = ctx.freshName("istr")
+
     nullSafeCodeGen(ctx, ev, childName =>
     s"""
-        /*
-      ${classOf[ByteBuffer].getName} bb = ${childName}.getByteBuffer();
-      ${classOf[ByteArrayInputStream].getName} bain = new ${classOf[ByteArrayInputStream].getName}(
-        bb.array(), bb.arrayOffset() + bb.position(), bb.remaining());
-      ${classOf[InputStreamReader].getName} istr = new ${classOf[InputStreamReader].getName}(bain, ${classOf[StandardCharsets].getName}.UTF_8);
-       */
-      String istr = $childName.toString();
+      String $istr = $childName.toString();
       try {
         ${ev.value} = new scala.Tuple2<$ctxClassName, $rClassName>( $contextPath,
-          ${codeGen("istr", ctx)});
+          ${codeGen(istr, ctx)});
       } catch(java.io.IOException e) {
         ${ev.isNull} = true;
       }
@@ -111,13 +96,15 @@ case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, child
 
     val boxed = CodeGenerator.boxedType(rClassName)
 
+    val res = ctx.freshName("res")
+
     nullSafeCodeGen(ctx, ev, input => s"""
-      $rClassName res = ${
+      $rClassName $res = ${
       converter.fold(input)( p =>
         p._2(ctx, input)
       )
     };
-      ${ev.value} = new scala.Tuple2<$contextClassName, String>($contextPath, ($boxed) res);
+      ${ev.value} = new scala.Tuple2<$contextClassName, String>($contextPath, ($boxed) $res);
     """)
   }
 }

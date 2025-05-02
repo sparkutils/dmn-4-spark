@@ -8,7 +8,6 @@ import org.apache.spark.sql.catalyst.expressions.codegen.{Block, CodeGenerator, 
 import org.apache.spark.sql.types.DataType
 
 import scala.collection.immutable.Seq
-import scala.reflect.ClassTag
 
 /**
  * Injects the context from input providers, calls the engine, and invokes result providers
