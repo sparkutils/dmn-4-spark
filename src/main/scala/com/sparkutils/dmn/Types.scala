@@ -181,13 +181,14 @@ trait DMNRuntime {
 
 /**
  * Represents any execution specific configuration
- * @param options an implementation specific encoding of options, provided to all repository functions and execution
+ * @param options an implementation specific encoding of options, provided to all repository functions and execution.
+ *                A default name=value;flag1;name2=value2 encoding scheme can be used if the runtime supports it.
  * @param runtime when provided the dmn-4-spark api will attempt to load this runtime (if not already the default)
  */
 case class DMNConfiguration(options: String = "", runtime: Option[String] = None) extends Serializable
 
 object DMNConfiguration {
-  val empty: DMNConfiguration = DMNConfiguration("")
+  val empty: DMNConfiguration = DMNConfiguration()
 }
 
 /**

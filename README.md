@@ -92,6 +92,10 @@ This allows the engines to process multiple results with the correct types when 
 
 Spark 4 may offer (TBD) an approach with Variant types to allow type evolution or changing but for 3.5 usage you must ensure your data types do not change in production, the library cannot manage this for you.
 
+## Using multiple runtimes
+
+dmn-4-spark supports the use of the first found SPI DMNRuntime but, via the DMNConfiguration.runtime option you can specify a fully qualified class name to use.  If this is not present in the provider list the default (first identified) will be used.  If none are available a DMNException will be thrown.
+
 ## Performance
 
 The performance of DMN is dependent on it's engine but there are certain general limitations that need be called out:
