@@ -110,7 +110,7 @@ private[dmn] trait DMNExpression extends Expression {
     val javaType = CodeGenerator.javaType(dataType)
     val boxed = CodeGenerator.boxedType(dataType)
 
-    val dmnResult = ctx.freshName("dmnResult")
+    val dmnResult = ctx.addMutableState(classOf[DMNResult].getName, "dmnResult")
 
     DMNExpression.runtimeVar.set(dmnResult)
 
@@ -130,7 +130,7 @@ private[dmn] trait DMNExpression extends Expression {
         $ctxv = $dmnRuntime.context();
         $allContexts
 
-        ${classOf[DMNResult].getName} $dmnResult = ${evaluateCodeGen(dmnModel, ctxv, dmnModelService)}
+        $dmnResult = ${evaluateCodeGen(dmnModel, ctxv, dmnModelService)}
         $resultProviderInit
         $javaType ${ev.value} = ($boxed) $resultProviderCode
         boolean ${ev.isNull} = ${ev.value} == null;
