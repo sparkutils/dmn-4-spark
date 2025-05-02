@@ -110,25 +110,38 @@ private[dmn] trait DMNExpression extends Expression {
     }
     val javaType = CodeGenerator.javaType(dataType)
     val boxed = CodeGenerator.boxedType(dataType)
+
+    val dmnResult = ctx.freshName("dmnResult")
+
+    DMNExpression.runtimeVar.set(dmnResult)
+
     // if the result provider can gen code, use it, otherwise "eval" via reference
     val (resultProviderInit: Block, resultProviderCode) =
       if (this.resultProvider.isInstanceOf[CodegenFallback])
-        (code"", s"$resultProvider.process(dmnResult);")
+        (code"", s"$resultProvider.process($dmnResult);")
       else {
         val c = this.resultProvider.genCode(ctx)
         (c.code, s"${c.value};")
       }
+
+    DMNExpression.runtimeVar.remove()
 
     ev.copy(code =
       code"""
         $ctxv = $dmnRuntime.context();
         $allContexts
 
-        ${classOf[DMNResult].getName} dmnResult = ${evaluateCodeGen(dmnModel, ctxv, dmnModelService)}
+        ${classOf[DMNResult].getName} $dmnResult = ${evaluateCodeGen(dmnModel, ctxv, dmnModelService)}
         $resultProviderInit
         $javaType ${ev.value} = ($boxed) $resultProviderCode
         boolean ${ev.isNull} = ${ev.value} == null;
           """)
+  }
+}
+
+object DMNExpression {
+  val runtimeVar = new ThreadLocal[String] {
+    override def initialValue(): String = ""
   }
 }
 
