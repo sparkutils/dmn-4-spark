@@ -9,6 +9,8 @@ import java.util.ServiceLoader
 import scala.collection.immutable.Seq
 import impl.{DMNDecisionService, DMNEvaluateAll}
 
+import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+
 /**
  * Represents a DMN file, could have been on disk or from a database etc.
  *
@@ -180,8 +182,9 @@ trait DMNRuntime {
 /**
  * Represents any execution specific configuration
  * @param options an implementation specific encoding of options, provided to all repository functions and execution
+ * @param runtime when provided the dmn-4-spark api will attempt to load this runtime (if not already the default)
  */
-case class DMNConfiguration(options: String) extends Serializable
+case class DMNConfiguration(options: String = "", runtime: Option[String] = None) extends Serializable
 
 object DMNConfiguration {
   val empty: DMNConfiguration = DMNConfiguration("")
@@ -212,7 +215,8 @@ object DMN {
   }
 
   /**
-   * Runs the dmnExecution with an optional implementation specific debug mode
+   * Runs the dmnExecution with an optional implementation specific debug mode.  If a specific runtime is provided in the DMNConfiguration
+   * an attempt to load it will be made, reverting to the first found DMNRepository SPI implementation.
    * @param dmnExecution The collection of dmn files, providers, model and options
    * @param debug An implementation specific debug flag passed to the DMNResultProvider
    * @return
@@ -220,12 +224,20 @@ object DMN {
   def dmnEval(dmnExecution: DMNExecution, debug: Boolean = false): Column = {
     import dmnExecution._
 
-    val children = contextProviders.map(p => dmnRepository.providerForType(p, debug, configuration))
-    val resultProvider = dmnRepository.resultProviderForType(model.resultProvider, debug, configuration)
+    val repo = configuration.runtime.flatMap{r =>
+      if (r == dmnRepository.getClass.getName)
+        // we already have it
+        Some(dmnRepository)
+      else
+        ServiceLoader.load(classOf[DMNRepository]).asScala.find(_.getClass.getName == r)
+    }.getOrElse(dmnRepository)
 
-    if (model.service.isDefined && dmnRepository.supportsDecisionService)
-      ShimUtils.column(DMNDecisionService(dmnRepository, dmnFiles, model, configuration, debug, children :+ resultProvider))
+    val children = contextProviders.map(p => repo.providerForType(p, debug, configuration))
+    val resultProvider = repo.resultProviderForType(model.resultProvider, debug, configuration)
+
+    if (model.service.isDefined && repo.supportsDecisionService)
+      ShimUtils.column(DMNDecisionService(repo, dmnFiles, model, configuration, debug, children :+ resultProvider))
     else
-      ShimUtils.column(DMNEvaluateAll(dmnRepository, dmnFiles, model, configuration, debug, children :+ resultProvider))
+      ShimUtils.column(DMNEvaluateAll(repo, dmnFiles, model, configuration, debug, children :+ resultProvider))
   }
 }
