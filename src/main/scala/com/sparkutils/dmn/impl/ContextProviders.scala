@@ -38,12 +38,11 @@ trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with DMNCo
   }
 
   override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
-    val (ctxClassName, contextPath) = genContext(ctx)
-    val rClassName = resultType.getName
+    val (_, contextPath) = genContext(ctx)
 
     val istr = ctx.freshName("istr")
 
-    nullSafeCodeGen(ctx, ev, childName =>
+    nullSafeCodeGen(child, ctx, ev, childName =>
     s"""
       String $istr = $childName.toString();
       try {

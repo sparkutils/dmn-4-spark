@@ -55,7 +55,7 @@ trait DMNContextProvider[R] extends Expression {
   val resultType: Class[R]
 
 
-  override def dataType: DataType = ObjectType(classOf[(DMNContextPath, R)])
+  override def dataType: DataType = ObjectType(classOf[Array[Object]])
 
   /**
    * Utility function for single children codegen, pre-prepares the result array as mutable state
@@ -70,7 +70,8 @@ trait DMNContextProvider[R] extends Expression {
     val childGen = child.genCode(ctx)
     val resultCode = f(childGen.value)
 
-    val res = ctx.addMutableState("Object[]","contextResult", v => s" $v = new Object[2];")
+    val cRes = ctx.freshName("contextResult")
+    val res = ctx.addMutableState("Object[]", cRes, v => s" $v = new Object[2];", useFreshName = false)
 
     if (nullable) {
       val nullSafeEval = ctx.nullSafeExec(child.nullable, childGen.isNull)(resultCode)
