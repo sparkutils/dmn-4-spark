@@ -1,13 +1,14 @@
 package com.sparkutils.dmn
 
 import org.apache.spark.sql.catalyst.expressions.Expression
-import org.apache.spark.sql.catalyst.expressions.codegen.CodegenContext
+import org.apache.spark.sql.catalyst.expressions.codegen.{CodeGenerator, CodegenContext, ExprCode, FalseLiteral}
 import org.apache.spark.sql.types.{DataType, ObjectType}
 import org.apache.spark.sql.{Column, ShimUtils, functions}
 
 import java.util.ServiceLoader
 import scala.collection.immutable.Seq
 import impl.{DMNDecisionService, DMNEvaluateAll}
+import org.apache.spark.sql.catalyst.expressions.codegen.Block.BlockHelper
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
@@ -43,7 +44,7 @@ case class DMNInputField(fieldExpression: String, providerType: String, contextP
 }
 
 /**
- * A provider for DMN Context injection
+ * A provider for DMN Context injection.  The resulting value from codegen must be an Object[2] array, ideally as mutable state.
  */
 trait DMNContextProvider[R] extends Expression {
   val contextPath: DMNContextPath
@@ -55,6 +56,37 @@ trait DMNContextProvider[R] extends Expression {
 
 
   override def dataType: DataType = ObjectType(classOf[(DMNContextPath, R)])
+
+  /**
+   * Utility function for single children codegen, pre-prepares the result array as mutable state
+   *
+   * @param f function that accepts the non-null evaluation result name of child and returns Java
+   *          code to compute the output.
+   */
+  protected def nullSafeCodeGen(child: Expression,
+                                 ctx: CodegenContext,
+                                 ev: ExprCode,
+                                 f: String => String): ExprCode = {
+    val childGen = child.genCode(ctx)
+    val resultCode = f(childGen.value)
+
+    val res = ctx.addMutableState("Object[]","contextResult", v => s" $v = new Object[2];")
+
+    if (nullable) {
+      val nullSafeEval = ctx.nullSafeExec(child.nullable, childGen.isNull)(resultCode)
+      ev.copy(code = code"""
+        ${ev.value} = $res;
+        ${childGen.code}
+        boolean ${ev.isNull} = ${childGen.isNull};
+        $nullSafeEval
+      """)
+    } else {
+      ev.copy(code = code"""
+        ${ev.value} = $res;
+        ${childGen.code}
+        $resultCode""", isNull = FalseLiteral)
+    }
+  }
 
   /**
    * Returns (DMNContext class name, contextPath Variable)

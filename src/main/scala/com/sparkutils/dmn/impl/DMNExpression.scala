@@ -89,7 +89,7 @@ private[dmn] trait DMNExpression extends Expression {
     def gen(i: Int): Block = {
       val child = contextProviders(i).genCode(ctx)
       val boxed = CodeGenerator.boxedType(contextProviders(i).asInstanceOf[DMNContextProvider[_]].resultType.getName)
-      val code = s"$ctxv.set(($dmnContextPathClassName)${child.value}._1(), ($boxed)${child.value}._2());"
+      val code = s"$ctxv.set(($dmnContextPathClassName)${child.value}[0], ($boxed)${child.value}[1]);"
       if (contextProviders(i).nullable)
         code"""
           ${child.code}

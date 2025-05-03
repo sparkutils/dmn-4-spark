@@ -47,8 +47,8 @@ trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with DMNCo
     s"""
       String $istr = $childName.toString();
       try {
-        ${ev.value} = new scala.Tuple2<$ctxClassName, $rClassName>( $contextPath,
-          ${codeGen(istr, ctx)});
+        ${ev.value}[0] = $contextPath;
+        ${ev.value}[1] = ${codeGen(istr, ctx)};
       } catch(java.io.IOException e) {
         ${ev.isNull} = true;
       }
@@ -104,7 +104,8 @@ case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, child
         p._2(ctx, input)
       )
     };
-      ${ev.value} = new scala.Tuple2<$contextClassName, String>($contextPath, ($boxed) $res);
+      ${ev.value}[0] = $contextPath;
+      ${ev.value}[1] = ($boxed) $res;
     """)
   }
 }
