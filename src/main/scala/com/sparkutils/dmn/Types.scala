@@ -75,14 +75,14 @@ trait DMNContextProvider[R] extends Expression {
     if (nullable) {
       val nullSafeEval = ctx.nullSafeExec(child.nullable, childGen.isNull)(resultCode)
       ev.copy(code = code"""
-        ${ev.value} = $res;
+        Object[] ${ev.value} = $res;
         ${childGen.code}
         boolean ${ev.isNull} = ${childGen.isNull};
         $nullSafeEval
       """)
     } else {
       ev.copy(code = code"""
-        ${ev.value} = $res;
+        Object[] ${ev.value} = $res;
         ${childGen.code}
         $resultCode""", isNull = FalseLiteral)
     }
