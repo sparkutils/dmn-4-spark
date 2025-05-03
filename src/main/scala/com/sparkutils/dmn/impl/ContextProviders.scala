@@ -72,9 +72,12 @@ case class StringContextProvider(contextPath: DMNContextPath, child: Expression)
   override val resultType: Class[String] = classOf[String]
 
   override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
-    val (contextClassName, contextPath) = genContext(ctx)
+    val (_, contextPath) = genContext(ctx)
 
-    defineCodeGen(ctx, ev, input => s"new scala.Tuple2<$contextClassName, String>($contextPath, $input.toString())")
+    nullSafeCodeGen(child, ctx, ev, input => s"""
+      ${ev.value}[0] = $contextPath;
+      ${ev.value}[1] = $input.toString();
+      """)
   }
 }
 
@@ -91,14 +94,14 @@ case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, child
   override val resultType: Class[T] = classTag[T].runtimeClass.asInstanceOf[Class[T]]
 
   override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
-    val (contextClassName, contextPath) = genContext(ctx)
+    val (_, contextPath) = genContext(ctx)
     val rClassName = resultType.getName
 
     val boxed = CodeGenerator.boxedType(rClassName)
 
     val res = ctx.freshName("res")
 
-    nullSafeCodeGen(ctx, ev, input => s"""
+    nullSafeCodeGen(child, ctx, ev, input => s"""
       $rClassName $res = ${
       converter.fold(input)( p =>
         p._2(ctx, input)
