@@ -414,7 +414,7 @@
     </profiles>
 
     <properties>
-        <revision>0.0.1-RC4</revision>
+        <revision>0.0.1-RC6</revision>
 
         <mavenFlattenPluginVersion>1.2.7</mavenFlattenPluginVersion>
         <mavenProjectInfoReportsPluginVersion>3.4.5</mavenProjectInfoReportsPluginVersion>

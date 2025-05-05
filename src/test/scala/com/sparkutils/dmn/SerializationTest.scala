@@ -48,7 +48,7 @@ class SerializationTest extends FunSuite with Matchers {
       f2.map(Versioned(3, 1, _))
 
   val c1 = Versioned(1, 1, DMNConfiguration("1"))
-  val c2 = Versioned(3, 1, DMNConfiguration("2"))
+  val c2 = Versioned(3, 1, DMNConfiguration("2", Some("aRuntime")))
 
   val configs = Seq(c1, c2)
 
@@ -65,9 +65,11 @@ class SerializationTest extends FunSuite with Matchers {
 
     import serialization._
     val vfs = readVersionedFilesFromDF(fs, col("fid"), col("fver"), col("locationURI"), col("bytes"))
-    val vms = readVersionedModelServicesFromDF(ms, col("mid"), col("mver"), col("name"), col("namespace"), col("service"), col("resultProvider"))
-    val vps = readVersionedProvidersFromDF(ps, col("pid"), col("pver"), col("fieldExpression"), col("providerType"), col("contextPath"))
-    val cps = readVersionedConfigurationDF(cs.toDF(), col("cid"), col("cver"), col("options"))
+    val vms = readVersionedModelServicesFromDF(ms, col("mid"), col("mver"), col("name"), col("namespace"),
+      col("service"), col("resultProvider"))
+    val vps = readVersionedProvidersFromDF(ps, col("pid"), col("pver"), col("fieldExpression"),
+      col("providerType"), col("contextPath"), col("stillSetWhenNull"))
+    val cps = readVersionedConfigurationDF(cs.toDF(), col("cid"), col("cver"), col("runtime"), col("options"))
 
     val execs = readVersionedExecutionsFromDF(vfs, vms, vps, cps)
     execs.count shouldBe 2
@@ -93,8 +95,10 @@ class SerializationTest extends FunSuite with Matchers {
 
     import serialization._
     val vfs = readVersionedFilesFromDF(fs, col("fid"), col("fver"), col("locationURI"), col("bytes"))
-    val vms = readVersionedModelServicesFromDF(ms, col("mid"), col("mver"), col("name"), col("namespace"), col("service"), col("resultProvider"))
-    val vps = readVersionedProvidersFromDF(ps, col("pid"), col("pver"), col("fieldExpression"), col("providerType"), col("contextPath"))
+    val vms = readVersionedModelServicesFromDF(ms, col("mid"), col("mver"), col("name"), col("namespace"),
+      col("service"), col("resultProvider"))
+    val vps = readVersionedProvidersFromDF(ps, col("pid"), col("pver"),
+      col("fieldExpression"), col("providerType"), col("contextPath"), col("stillSetWhenNull"))
 
     val execs = readVersionedExecutionsFromDF(vfs, vms, vps)
     execs.count shouldBe 2

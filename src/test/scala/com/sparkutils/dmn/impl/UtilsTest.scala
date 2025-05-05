@@ -30,7 +30,7 @@ class UtilsTest extends FunSuite with Matchers {
   test("Instantiating contextproviders") {
     val c = ContextPath()
     val l = Literal(1L)
-    val exp = StringContextProvider(c, l)
+    val exp = StringContextProvider(c, true, l)
 
     val r = utils.loadUnaryContextProvider(classOf[StringContextProvider].getName, c, l)
     r shouldBe exp

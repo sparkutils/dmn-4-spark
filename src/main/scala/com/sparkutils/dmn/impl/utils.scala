@@ -1,9 +1,8 @@
 package com.sparkutils.dmn.impl
 
-import com.sparkutils.dmn.{DMNContextPath, DMNContextProvider, DMNException, DMNResultProvider}
+import com.sparkutils.dmn.{DMNConfiguration, DMNContextPath, DMNContextProvider, DMNException, DMNResultProvider}
 import org.apache.spark.sql.catalyst.expressions.Expression
 
-import java.lang.reflect.Constructor
 import scala.util.Try
 
 object utils {
@@ -35,5 +34,26 @@ object utils {
     } yield
       provider
     ).fold(t => throw DMNException(s"Could not loadResultProvider $className", t), identity)
+
+
+  /**
+   * Provides support for ; configuration of name=value pairs.  No =value implies a flag and will be saved against empty string.
+   * More than one = will simply ignore all further entries, no name will similarly be ignored.
+   * @param dmnConfiguration
+   * @return
+   */
+  def configMap(dmnConfiguration: DMNConfiguration): Map[String,String] =
+    dmnConfiguration.options.split(";").flatMap{e =>
+      val p = e.split("=")
+
+      p.length match {
+        case 0 =>
+          None
+        case 1 =>
+          Some(p(0), "")
+        case _ =>
+          Some(p(0), p(1))
+      }
+    }.toMap
 
 }

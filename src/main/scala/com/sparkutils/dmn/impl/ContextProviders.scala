@@ -1,58 +1,115 @@
 package com.sparkutils.dmn.impl
 
-import com.sparkutils.dmn.{DMNContextPath, DMNContextProvider}
-import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
-import org.apache.spark.sql.catalyst.expressions.{Expression, UnaryExpression}
+import com.sparkutils.dmn.{DMNContextPath, UnaryDMNContextProvider}
+import org.apache.spark.sql.catalyst.expressions.codegen.{CodeGenerator, CodegenContext, ExprCode}
+import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.unsafe.types.UTF8String
 
-import java.io.{ByteArrayInputStream, InputStreamReader}
-import java.nio.charset.StandardCharsets
+import scala.reflect.{ClassTag, classTag}
 
 /**
- * provides UTF8 to inputstream conversion
+ * provides UTF8 to IO operation on string conversion.  IO Exceptions are treated as null
  * @tparam R
  */
-trait UTF8StringInputStreamContextProvider[R] extends UnaryExpression with CodegenFallback with DMNContextProvider[R] {
+trait StringWithIOProcessorContextProvider[R] extends UnaryDMNContextProvider[R] {
+  /**
+   * Eval path to process the input stream
+   */
+  def readValue(str: String): R
 
-  def readValue(str: InputStreamReader): R
+  /**
+   * Codegen path, should be a one liner without semi-colon, if a more complex processing is required override doGenCode instead.
+   * @param strVal the variable name of the inputStreamReader
+   * @param ctx
+   * @return
+   */
+  def codeGen(strVal: String, ctx: CodegenContext): String
 
-  override def nullSafeEval(input: Any): Any = {
+  override def nullSafeContextEval(input: Any): Any = {
     val i = input.asInstanceOf[UTF8String]
-    val bb = i.getByteBuffer // handles the size of issues
-    assert(bb.hasArray)
-
-    val bain = new ByteArrayInputStream(
-      bb.array(), bb.arrayOffset() + bb.position(), bb.remaining())
-
-    val str = new InputStreamReader(bain, StandardCharsets.UTF_8)
+    val istr = i.toString
 
     // assuming it's quicker than using classes
-    val testData = // bytes is a couple of percents slower mapper.readValue(bb.array(), bb.arrayOffset() + bb.position(), bb.remaining(), classOf[java.util.Map[String, Object]])
-      readValue(str)
+    val r = // bytes is a couple of percents slower mapper.readValue(bb.array(), bb.arrayOffset() + bb.position(), bb.remaining(), classOf[java.util.Map[String, Object]])
+      try {
+        readValue(istr)
+      } catch {
+        case _: java.io.IOException => null
+      }
 
-    (contextPath, testData)
+    r
   }
 
+  override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
+    val (_, contextPath) = genContext(ctx)
+
+    val istr = ctx.freshName("istr")
+
+    nullSafeContextCodeGen(child, ctx, ev, contextPath, childName =>
+    s"""
+      String $istr = $childName.toString();
+      try {
+        ${ev.value}[0] = $contextPath;
+        ${ev.value}[1] = ${codeGen(istr, ctx)};
+      } catch(java.io.IOException e) {
+        ${ev.isNull} = true;
+      }
+    """
+    )
+  }
 }
 
-case class StringContextProvider(contextPath: DMNContextPath, child: Expression) extends UnaryExpression with DMNContextProvider[String] with CodegenFallback {
+case class StringContextProvider(contextPath: DMNContextPath, stillSetWhenNull: Boolean, child: Expression) extends UnaryDMNContextProvider[String] {
 
   def withNewChildInternal(newChild: Expression): Expression = copy(child = newChild)
 
 
-  override def nullSafeEval(input: Any): Any = {
-    (contextPath, input.toString)
-  }
+  override def nullSafeContextEval(input: Any): Any =
+    input.toString
 
+  /**
+   * Result class type
+   */
+  override val resultType: Class[String] = classOf[String]
+
+  override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
+    val (_, contextPath) = genContext(ctx)
+
+    nullSafeContextCodeGen(child, ctx, ev, contextPath, input => s"""
+      ${ev.value}[0] = $contextPath;
+      ${ev.value}[1] = $input.toString();
+      """)
+  }
 }
 
-case class SimpleContextProvider[T](contextPath: DMNContextPath, child: Expression, converter: Option[Any => T] = None) extends UnaryExpression with DMNContextProvider[T] with CodegenFallback {
+case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, stillSetWhenNull: Boolean, child: Expression, converter: Option[(Any => T, (CodegenContext, String) => String)] = None) extends UnaryDMNContextProvider[T] {
 
   def withNewChildInternal(newChild: Expression): Expression = copy(child = newChild)
 
-  override def nullSafeEval(input: Any): Any = {
-    // TODO - compile the option out
-    (contextPath, converter.map(f => f(input)).getOrElse(input))
-  }
+  override def nullSafeContextEval(input: Any): Any =
+    converter.map(f => f._1(input)).getOrElse(input)
 
+  /**
+   * Result class type
+   */
+  override val resultType: Class[T] = classTag[T].runtimeClass.asInstanceOf[Class[T]]
+
+  override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
+    val (_, contextPath) = genContext(ctx)
+    val rClassName = resultType.getName
+
+    val boxed = CodeGenerator.boxedType(rClassName)
+
+    val res = ctx.freshName("res")
+
+    nullSafeContextCodeGen(child, ctx, ev, contextPath, input => s"""
+      $rClassName $res = ${
+      converter.fold(input)( p =>
+        p._2(ctx, input)
+      )
+    };
+      ${ev.value}[0] = $contextPath;
+      ${ev.value}[1] = ($boxed) $res;
+    """)
+  }
 }
