@@ -66,7 +66,7 @@ trait DMNContextProvider[R] extends Expression {
   val resultType: Class[R]
 
 
-  override def dataType: DataType = ObjectType(classOf[(DMNContextPath, R)])
+  override def dataType: DataType = ObjectType(classOf[Array[Object]])
 
   /**
    * When stillSetWhenNull is true we cannot allow folding to null
@@ -89,9 +89,9 @@ trait DMNContextProvider[R] extends Expression {
    */
   protected def nullSafeContextEval(child: Expression, input: Any): Any =
     (stillSetWhenNull, input) match {
-      case (true, null) => (contextPath, null)
+      case (true, null) => Array(contextPath, null)
       case (false, null) => null
-      case (_, i) => (contextPath, nullSafeContextEval(i))
+      case (_, i) => Array(contextPath, nullSafeContextEval(i))
     }
 
   /**

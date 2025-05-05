@@ -1,11 +1,12 @@
 package com.sparkutils.dmn.impl
 
+import com.sparkutils.dmn.impl.DMNExpression.checkInputs
 import com.sparkutils.dmn.{DMNConfiguration, DMNContext, DMNContextPath, DMNContextProvider, DMNFile, DMNModel, DMNModelService, DMNRepository, DMNResult, DMNResultProvider, DMNRuntime}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Expression, Literal}
 import org.apache.spark.sql.catalyst.expressions.codegen.Block.BlockHelper
 import org.apache.spark.sql.catalyst.expressions.codegen.{Block, CodeGenerator, CodegenContext, CodegenFallback, ExprCode}
-import org.apache.spark.sql.types.DataType
+import org.apache.spark.sql.types.{DataType, ObjectType}
 
 import scala.collection.immutable.Seq
 
@@ -45,8 +46,8 @@ private[dmn] trait DMNExpression extends Expression {
     contextProviders.foreach { child =>
       val res = child.eval(input)
       if (res != null) {
-        val p = res.asInstanceOf[(DMNContextPath, AnyRef)]
-        ctx.set(p._1, p._2)
+        val p = res.asInstanceOf[Array[Object]]
+        ctx.set(p(0).asInstanceOf[DMNContextPath], p(1))
       }
     }
 
@@ -88,7 +89,14 @@ private[dmn] trait DMNExpression extends Expression {
 
     def gen(i: Int): Block = {
       val child = contextProviders(i).genCode(ctx)
-      val boxed = CodeGenerator.boxedType(contextProviders(i).asInstanceOf[DMNContextProvider[_]].resultType.getName)
+      val boxed =
+        contextProviders(i) match {
+          case p: DMNContextProvider[_] =>
+            CodeGenerator.boxedType(p.resultType.getName)
+          case _ => // likely null literal
+            "Object"
+        }
+
       val code = s"$ctxv.set(($dmnContextPathClassName)${child.value}[0], ($boxed)${child.value}[1]);"
       if (contextProviders(i).nullable)
         code"""
@@ -142,11 +150,16 @@ object DMNExpression {
   val runtimeVar = new ThreadLocal[String] {
     override def initialValue(): String = ""
   }
+
+  def checkInputs(children: Seq[Expression]): Unit = {
+    assert(children.dropRight(1).forall(c => c.isInstanceOf[DMNContextProvider[_]] ||
+      (c.resolved && c.dataType == ObjectType(classOf[Array[Object]])) ), "Input children must be DMNContextProvider's")
+    assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
+  }
 }
 
 private[dmn] case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
-  assert(children.dropRight(1).forall(c => c.isInstanceOf[DMNContextProvider[_]] || (c.isInstanceOf[Literal] && c.asInstanceOf[Literal].value == null) ), "Input children must be DMNContextProvider's")
-  assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
+  checkInputs(children)
 
   protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
 
@@ -156,8 +169,7 @@ private[dmn] case class DMNDecisionService(dmnRepository: DMNRepository, dmnFile
 }
 
 private[dmn] case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
-  assert(children.dropRight(1).forall(c => c.isInstanceOf[DMNContextProvider[_]] || (c.isInstanceOf[Literal] && c.asInstanceOf[Literal].value == null) ), "Input children must be DMNContextProvider's")
-  assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
+  checkInputs(children)
 
   protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
 
