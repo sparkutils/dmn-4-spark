@@ -20,7 +20,8 @@ object serialization {
                                ruleSuiteVersion: Column,
                                fieldExpression: Column,
                                providerType: Column,
-                               contextPath: Column
+                               contextPath: Column,
+                               stillSetWhenNull: Column
                               )(implicit enc: Encoder[VersionedProviders]):
     Dataset[VersionedProviders] =
       df.select(ruleSuiteId.as("id"),
@@ -28,7 +29,8 @@ object serialization {
         functions.struct(
           fieldExpression.as("fieldExpression"),
           providerType.as("providerType"),
-          contextPath.as("contextPath")
+          contextPath.as("contextPath"),
+          stillSetWhenNull.as("stillSetWhenNull")
         ).as("what")
       ).as[VersionedProviders]
 
@@ -50,13 +52,15 @@ object serialization {
   def readVersionedConfigurationDF(df: DataFrame,
                                ruleSuiteId: Column,
                                ruleSuiteVersion: Column,
+                               runtime: Column,
                                options: Column
                               )(implicit enc: Encoder[VersionedConfiguration]):
   Dataset[VersionedConfiguration] =
     df.select(ruleSuiteId.as("id"),
       ruleSuiteVersion.as("version"),
       functions.struct(
-        options.as("options")
+        options.as("options"),
+        runtime.as("runtime")
       ).as("what")
     ).as[VersionedConfiguration]
 
@@ -98,7 +102,8 @@ object serialization {
       ).join(
         configuration.selectExpr("what configuration", "id cid", "version cv"),
         col("id") === col("cid") && col("version") === col("cv")
-      ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders"), col("configuration")).as("what"))
+      ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders"),
+          col("configuration")).as("what"))
         .as[VersionedExecution]
 
 
@@ -117,7 +122,8 @@ object serialization {
         ).join(
           inputs.groupBy(col("id").as("pid"), col("version").as("pv")).agg(collect_set("what").as("contextProviders")),
           col("id") === col("pid") && col("version") === col("pv")
-        ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders"), expr("named_struct('options', '') configuration")).as("what"))
+        ).select(col("id"), col("version"), struct(col("dmnFiles"), col("model"), col("contextProviders"),
+          expr("named_struct('options', '', 'runtime', null) configuration")).as("what"))
         .as[VersionedExecution]
 
 }

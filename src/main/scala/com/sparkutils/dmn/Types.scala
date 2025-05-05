@@ -1,6 +1,6 @@
 package com.sparkutils.dmn
 
-import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.{Expression, UnaryExpression}
 import org.apache.spark.sql.catalyst.expressions.codegen.{CodeGenerator, CodegenContext, ExprCode, FalseLiteral}
 import org.apache.spark.sql.types.{DataType, ObjectType}
 import org.apache.spark.sql.{Column, ShimUtils, functions}
@@ -8,6 +8,7 @@ import org.apache.spark.sql.{Column, ShimUtils, functions}
 import java.util.ServiceLoader
 import scala.collection.immutable.Seq
 import impl.{DMNDecisionService, DMNEvaluateAll}
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.Block.BlockHelper
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
@@ -34,8 +35,10 @@ case class DMNModelService(name: String, namespace: String, service: Option[Stri
  * @param fieldExpression an sql expression (could be the input field name or more complex expressions, or implementation specific) producing the input value for this provider
  * @param providerType the type of the input provider (JSON, DDL, or an implementation specific classname)
  * @param contextPath a string representation of the DMNContextPath to store the results in (implementation specific)
+ * @param stillSetWhenNull specifies if, when the fieldExpression is null what should happen to the contextPath.
+ *                         The default value of true specifies that a context entry should be made with a null value
  */
-case class DMNInputField(fieldExpression: String, providerType: String, contextPath: String) extends Serializable {
+case class DMNInputField(fieldExpression: String, providerType: String, contextPath: String, stillSetWhenNull: Boolean = true) extends Serializable {
   /**
    * Implementations are free to chose a different parsing approach for the fieldExpression
    * @return
@@ -43,11 +46,19 @@ case class DMNInputField(fieldExpression: String, providerType: String, contextP
   def defaultExpr: Expression = ShimUtils.expression( functions.expr(fieldExpression) )
 }
 
+trait UnaryDMNContextProvider[R] extends UnaryExpression with DMNContextProvider[R] {
+  override def eval(input: InternalRow): Any = {
+    val res = child.eval(input)
+    nullSafeContextEval(child, res)
+  }
+}
+
 /**
  * A provider for DMN Context injection.  The resulting value from codegen must be an Object[2] array, ideally as mutable state.
  */
 trait DMNContextProvider[R] extends Expression {
   val contextPath: DMNContextPath
+  val stillSetWhenNull: Boolean
 
   /**
    * Result class type
@@ -58,22 +69,46 @@ trait DMNContextProvider[R] extends Expression {
   override def dataType: DataType = ObjectType(classOf[Array[Object]])
 
   /**
-   * Utility function for single children codegen, pre-prepares the result array as mutable state
+   * Typical implementation function for the provider logic, only the result need be provided
+   * @param input
+   * @return the result of the input processing without context
+   */
+  protected def nullSafeContextEval(input: Any): Any
+
+  /**
+   * Processes child expression eval results, provided by UnaryDMNContextProvider
+   * @param child not used by the base implementation, provided for possible overriding implementations
+   * @param input the result of child eval processing
+   * @return
+   */
+  protected def nullSafeContextEval(child: Expression, input: Any): Any =
+    (stillSetWhenNull, input) match {
+      case (true, null) => (contextPath, null)
+      case (false, null) => null
+      case (_, i) => (contextPath, nullSafeContextEval(i))
+    }
+
+  /**
+   * Utility function for single children codegen, pre-prepares the result array as mutable state taking stillSetWhenNull
+   * behaviour into account.
    *
    * @param f function that accepts the non-null evaluation result name of child and returns Java
    *          code to compute the output.
    */
-  protected def nullSafeCodeGen(child: Expression,
+  protected def nullSafeContextCodeGen(child: Expression,
                                  ctx: CodegenContext,
                                  ev: ExprCode,
+                                 contextPath: String,
                                  f: String => String): ExprCode = {
+
     val childGen = child.genCode(ctx)
     val resultCode = f(childGen.value)
 
     val cRes = ctx.freshName("contextResult")
     val res = ctx.addMutableState("Object[]", cRes, v => s" $v = new Object[2];", useFreshName = false)
 
-    if (nullable) {
+    // only in this combo should null be returned
+    if (nullable && !stillSetWhenNull) {
       val nullSafeEval = ctx.nullSafeExec(child.nullable, childGen.isNull)(resultCode)
       ev.copy(code = code"""
         Object[] ${ev.value} = $res;
@@ -84,8 +119,24 @@ trait DMNContextProvider[R] extends Expression {
     } else {
       ev.copy(code = code"""
         Object[] ${ev.value} = $res;
+        boolean ${ev.isNull} = false;
         ${childGen.code}
-        $resultCode""", isNull = FalseLiteral)
+        ${
+          if (stillSetWhenNull)
+            code"""
+              if (${childGen.isNull}) {
+                ${ev.value}[0] = $contextPath;
+                ${ev.value}[1] = null;
+              } else {
+                $resultCode
+              }
+                """
+          else
+            code"""
+              $resultCode
+                """
+        }
+        """)
     }
   }
 
