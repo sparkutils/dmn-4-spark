@@ -2,7 +2,7 @@ package com.sparkutils.dmn.impl
 
 import com.sparkutils.dmn.{DMNConfiguration, DMNContext, DMNContextPath, DMNContextProvider, DMNFile, DMNModel, DMNModelService, DMNRepository, DMNResult, DMNResultProvider, DMNRuntime}
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.{Expression, Literal}
 import org.apache.spark.sql.catalyst.expressions.codegen.Block.BlockHelper
 import org.apache.spark.sql.catalyst.expressions.codegen.{Block, CodeGenerator, CodegenContext, CodegenFallback, ExprCode}
 import org.apache.spark.sql.types.DataType
@@ -45,8 +45,8 @@ private[dmn] trait DMNExpression extends Expression {
     contextProviders.foreach { child =>
       val res = child.eval(input)
       if (res != null) {
-        val (contextPath: DMNContextPath, testData: Any) = res
-        ctx.set(contextPath, testData)
+        val p = res.asInstanceOf[(DMNContextPath, AnyRef)]
+        ctx.set(p._1, p._2)
       }
     }
 
@@ -145,7 +145,7 @@ object DMNExpression {
 }
 
 private[dmn] case class DMNDecisionService(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
-  assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
+  assert(children.dropRight(1).forall(c => c.isInstanceOf[DMNContextProvider[_]] || (c.isInstanceOf[Literal] && c.asInstanceOf[Literal].value == null) ), "Input children must be DMNContextProvider's")
   assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
 
   protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
@@ -156,7 +156,7 @@ private[dmn] case class DMNDecisionService(dmnRepository: DMNRepository, dmnFile
 }
 
 private[dmn] case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: Seq[DMNFile], model: DMNModelService, configuration: DMNConfiguration, debug: Boolean, children: Seq[Expression]) extends DMNExpression {
-  assert(children.dropRight(1).forall(_.isInstanceOf[DMNContextProvider[_]]), "Input children must be DMNContextProvider's")
+  assert(children.dropRight(1).forall(c => c.isInstanceOf[DMNContextProvider[_]] || (c.isInstanceOf[Literal] && c.asInstanceOf[Literal].value == null) ), "Input children must be DMNContextProvider's")
   assert(children.last.isInstanceOf[DMNResultProvider], "Last child must be a DMNResultProvider")
 
   protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)

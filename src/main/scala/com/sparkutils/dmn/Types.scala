@@ -66,7 +66,13 @@ trait DMNContextProvider[R] extends Expression {
   val resultType: Class[R]
 
 
-  override def dataType: DataType = ObjectType(classOf[Array[Object]])
+  override def dataType: DataType = ObjectType(classOf[(DMNContextPath, R)])
+
+  /**
+   * When stillSetWhenNull is true we cannot allow folding to null
+   * @return
+   */
+  override def foldable: Boolean = super.foldable && !stillSetWhenNull
 
   /**
    * Typical implementation function for the provider logic, only the result need be provided
