@@ -450,8 +450,8 @@
         <!-- for oss builds -->
         <snakeVersion>1.33</snakeVersion>
 
-        <shimCompilationVersion>0.2.0-RC1</shimCompilationVersion>
-        <shimRuntimeVersion>0.2.0-RC1</shimRuntimeVersion>
+        <shimCompilationVersion>0.2.0-RC2</shimCompilationVersion>
+        <shimRuntimeVersion>0.2.0-RC2</shimRuntimeVersion>
     </properties>
 <!-- -->
     <repositories>
