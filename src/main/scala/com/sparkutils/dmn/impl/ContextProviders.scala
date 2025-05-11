@@ -82,6 +82,15 @@ case class StringContextProvider(contextPath: DMNContextPath, stillSetWhenNull: 
   }
 }
 
+/**
+ * Should only be used at top level provider logic
+ * @param contextPath
+ * @param stillSetWhenNull
+ * @param child
+ * @param converter
+ * @param classTag$T$0
+ * @tparam T
+ */
 case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, stillSetWhenNull: Boolean, child: Expression, converter: Option[(Any => T, (CodegenContext, String) => String)] = None) extends UnaryDMNContextProvider[T] {
 
   def withNewChildInternal(newChild: Expression): Expression = copy(child = newChild)
@@ -96,9 +105,17 @@ case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, still
 
   override protected def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
     val (_, contextPath) = genContext(ctx)
-    val rClassName = resultType.getName
+    val rClassName =
+      if (resultType.isArray)
+        s"${resultType.componentType()}[]"
+      else
+        resultType.getName
 
-    val boxed = CodeGenerator.boxedType(rClassName)
+    val boxed =
+      if (resultType.isArray)
+        rClassName
+      else
+        CodeGenerator.boxedType(rClassName)
 
     val res = ctx.freshName("res")
 
