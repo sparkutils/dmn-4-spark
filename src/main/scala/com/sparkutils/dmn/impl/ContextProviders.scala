@@ -107,7 +107,7 @@ case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, still
     val (_, contextPath) = genContext(ctx)
     val rClassName =
       if (resultType.isArray)
-        s"${resultType.componentType()}[]"
+        s"${resultType.getComponentType}[]"
       else
         resultType.getName
 
