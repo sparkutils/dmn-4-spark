@@ -2,7 +2,7 @@ package com.sparkutils.dmn
 
 import org.apache.spark.sql.catalyst.expressions.{Expression, UnaryExpression}
 import org.apache.spark.sql.catalyst.expressions.codegen.{CodeGenerator, CodegenContext, ExprCode, FalseLiteral}
-import org.apache.spark.sql.types.{DataType, ObjectType}
+import org.apache.spark.sql.types.{ArrayType, DataType, DecimalType, MapType, ObjectType, StructType}
 import org.apache.spark.sql.{Column, ShimUtils, functions}
 
 import java.util.ServiceLoader
@@ -54,11 +54,29 @@ trait UnaryDMNContextProvider[R] extends UnaryExpression with DMNContextProvider
     nullSafeContextEval(child, res)
   }
 
+  def equalsIgnoreNull(left: DataType, right: DataType): Boolean =
+    (left, right) match {
+      case (l: StructType, r: StructType) =>
+        if (l.fields.length == r.fields.length)
+          l.fields.zip(r.fields).forall {
+            case (l, r) =>
+              l.name == r.name && equalsIgnoreNull(l.dataType, r.dataType)
+          }
+        else
+          false
+      case (ArrayType(l, _), ArrayType(r, _)) => equalsIgnoreNull(l,r)
+      case (MapType(lk, lv, _), MapType(rk, rv, _)) =>
+        equalsIgnoreNull(lk,rk) && equalsIgnoreNull(lv,rv)
+      case (l: DecimalType, r: DecimalType) => true // precision is hard and input isn't the same as Spark uses
+      case _ => left == right
+    }
+
   def verifyDataTypes(child: Expression): Unit = {
     if (child.resolved) {
       providedType.foreach{
         provided =>
-          if (provided != child.dataType) {
+
+          if (!equalsIgnoreNull(provided, child.dataType)) {
             throw new DMNException(s"Provided type '${provided.sql}' for context '$contextPath' does not match the child expression type '${child.dataType.sql}'")
           }
       }
