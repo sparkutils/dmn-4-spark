@@ -3,6 +3,7 @@ package com.sparkutils.dmn.impl
 import com.sparkutils.dmn.{DMNContextPath, UnaryDMNContextProvider}
 import org.apache.spark.sql.catalyst.expressions.codegen.{CodeGenerator, CodegenContext, ExprCode}
 import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.types.DataType
 import org.apache.spark.unsafe.types.UTF8String
 
 import scala.reflect.{ClassTag, classTag}
@@ -59,9 +60,12 @@ trait StringWithIOProcessorContextProvider[R] extends UnaryDMNContextProvider[R]
   }
 }
 
-case class StringContextProvider(contextPath: DMNContextPath, stillSetWhenNull: Boolean, child: Expression) extends UnaryDMNContextProvider[String] {
+case class StringContextProvider(contextPath: DMNContextPath, stillSetWhenNull: Boolean, child: Expression, providedType: Option[DataType]) extends UnaryDMNContextProvider[String] {
 
-  def withNewChildInternal(newChild: Expression): Expression = copy(child = newChild)
+  def withNewChildInternal(newChild: Expression): Expression = {
+    verifyDataTypes(newChild)
+    copy(child = newChild)
+  }
 
 
   override def nullSafeContextEval(input: Any): Any =
@@ -91,9 +95,12 @@ case class StringContextProvider(contextPath: DMNContextPath, stillSetWhenNull: 
  * @param classTag$T$0
  * @tparam T
  */
-case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, stillSetWhenNull: Boolean, child: Expression, converter: Option[(Any => T, (CodegenContext, String) => String)] = None) extends UnaryDMNContextProvider[T] {
+case class SimpleContextProvider[T: ClassTag](contextPath: DMNContextPath, stillSetWhenNull: Boolean, child: Expression, providedType: Option[DataType], converter: Option[(Any => T, (CodegenContext, String) => String)] = None) extends UnaryDMNContextProvider[T] {
 
-  def withNewChildInternal(newChild: Expression): Expression = copy(child = newChild)
+  def withNewChildInternal(newChild: Expression): Expression = {
+    verifyDataTypes(newChild)
+    copy(child = newChild)
+  }
 
   override def nullSafeContextEval(input: Any): Any =
     converter.map(f => f._1(input)).getOrElse(input)

@@ -47,9 +47,22 @@ case class DMNInputField(fieldExpression: String, providerType: String, contextP
 }
 
 trait UnaryDMNContextProvider[R] extends UnaryExpression with DMNContextProvider[R] {
+  val providedType: Option[DataType]
+
   override def eval(input: InternalRow): Any = {
     val res = child.eval(input)
     nullSafeContextEval(child, res)
+  }
+
+  def verifyDataTypes(child: Expression): Unit = {
+    if (child.resolved) {
+      providedType.foreach{
+        provided =>
+          if (provided != child.dataType) {
+            throw new DMNException(s"Provided type '${provided.sql}' for context '$contextPath' does not match the child expression type '${child.dataType.sql}'")
+          }
+      }
+    }
   }
 }
 
