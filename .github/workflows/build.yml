@@ -123,7 +123,6 @@ jobs:
     needs: [ testBuilds_2_13_16 ]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
-      testString: test
       theMatrix: |
         {
           "profile": [ "Spark4" ],
