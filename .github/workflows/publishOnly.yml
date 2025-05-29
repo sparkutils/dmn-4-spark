@@ -58,7 +58,7 @@ jobs:
     secrets: inherit
 
   publish_2_13_16:
-    uses: sparkutils/building/.github/workflows/run_build.yml@main
+    uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
       testString: test
       theMatrix: |
