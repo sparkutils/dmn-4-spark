@@ -27,7 +27,7 @@ private[dmn] trait DMNExpression extends Expression {
   lazy val resultProvider: DMNResultProvider = children.last.asInstanceOf[DMNResultProvider]
 
   @transient
-  lazy val dmnRuntime: DMNRuntime = dmnRepository.dmnRuntimeFor(dmnFiles, configuration)
+  lazy val dmnRuntime: DMNRuntime = dmnRepository.dmnRuntimeFor(dmnFiles, configuration, debug)
 
   @transient
   lazy val contextProviders: Seq[Expression] = children.dropRight(1).toVector
@@ -163,7 +163,7 @@ private[dmn] case class DMNDecisionService(dmnRepository: DMNRepository, dmnFile
 
   protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
 
-  override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateDecisionService(ctx, model.service.get)
+  override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateDecisionService(ctx, model.service.get, debug)
 
   override def evaluateCodeGen(dmnModelName: String, ctxName: String, model: String): String = s"$dmnModelName.evaluateDecisionService($ctxName, (String)$model.service().get());"
 }
@@ -173,7 +173,7 @@ private[dmn] case class DMNEvaluateAll(dmnRepository: DMNRepository, dmnFiles: S
 
   protected def withNewChildrenInternal(newChildren: scala.IndexedSeq[Expression]): Expression = copy(children = newChildren.toVector)
 
-  override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateAll(ctx)
+  override def evaluate(ctx: DMNContext): DMNResult = dmnModel.evaluateAll(ctx, debug)
 
   override def evaluateCodeGen(dmnModelName: String, ctxName: String, model: String): String = s"$dmnModelName.evaluateAll($ctxName);"
 }
