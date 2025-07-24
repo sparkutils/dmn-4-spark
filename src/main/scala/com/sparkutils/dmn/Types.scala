@@ -224,9 +224,9 @@ trait DMNResultProvider extends Expression {
  */
 trait DMNModel {
 
-  def evaluateAll(ctx: DMNContext): DMNResult
+  def evaluateAll(ctx: DMNContext, debug: Boolean): DMNResult
 
-  def evaluateDecisionService(ctx: DMNContext, service: String): DMNResult
+  def evaluateDecisionService(ctx: DMNContext, service: String, debug: Boolean): DMNResult
 
 }
 
@@ -240,7 +240,7 @@ trait DMNRepository extends Serializable {
    * @param configuration options passed from the DMNExecution
    * @return
    */
-  def dmnRuntimeFor(dmnFiles: Seq[DMNFile], configuration: DMNConfiguration): DMNRuntime
+  def dmnRuntimeFor(dmnFiles: Seq[DMNFile], configuration: DMNConfiguration, debug: Boolean): DMNRuntime
 
   /**
    * The engine may not support calling decision services, evaluation will fall back to "evaluateAll" on the model
