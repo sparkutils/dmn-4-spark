@@ -10,7 +10,7 @@ The aim of this project is to enable a Spark first runtime for DMN processing, a
 
 ## What it is
 
-An API providing versioned serialization of a configurable dmn file set and plugable expression handling.
+An API providing versioned serialization of a configurable dmn file set and pluggable expression handling.
 
 1. You bring the .dmn files to the engine directly
 2. dmn.ContextPath interface allows creation of dmn.Contexts with which to run your engine of choice
