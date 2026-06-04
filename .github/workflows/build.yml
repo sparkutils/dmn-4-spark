@@ -91,7 +91,7 @@ jobs:
     secrets: inherit
 
   publish_2_12_10:
-    needs: [ testBuilds_2_12_10, noTestBuilds_2_12_10 ]
+    needs: [ testBuilds_2_12_10 ]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
       theMatrix: |
