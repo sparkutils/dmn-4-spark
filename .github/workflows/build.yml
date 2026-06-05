@@ -127,7 +127,6 @@ jobs:
     needs: [ testBuilds_2_13_16 ]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
-      testString: test
       theMatrix: |
         {
           "profile": [ "Spark4", "17.3.dbr", "18.3.dbr" ],
@@ -143,7 +142,6 @@ jobs:
     needs: [ testBuilds_2_13_18 ]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
-      testString: test
       theMatrix: |
         {
           "profile": [ "Spark41" ],
