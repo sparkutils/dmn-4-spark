@@ -375,7 +375,7 @@
     </profiles>
 
     <properties>
-        <revision>0.1.0-DONT</revision>
+        <revision>0.1.0-baseline</revision>
 
         <mavenFlattenPluginVersion>1.2.7</mavenFlattenPluginVersion>
         <mavenProjectInfoReportsPluginVersion>3.4.5</mavenProjectInfoReportsPluginVersion>
