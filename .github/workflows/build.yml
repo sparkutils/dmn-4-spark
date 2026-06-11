@@ -15,42 +15,55 @@ env:
 
 jobs:
 
-  # all versions that can be built with tests - typically oss only.  Fail fast so we can see all compilation or test errors at once
-  testBuilds_2_12_10:
+  testBuilds_2_12_18:
     uses: sparkutils/building/.github/workflows/run_build.yml@main
     with:
       testString: test
       theMatrix: |
         {
-          "profile": ["Spark3", "Spark313"],
-          "scala": ["scala_2.12.10"]
-        }  
-    secrets: inherit
-
-  testBuilds_2_12_15_and_13_5:
-    uses: sparkutils/building/.github/workflows/run_build.yml@main
-    with:
-      testString: test
-      theMatrix: |
-        {
-          "profile": [ "Spark32", "Spark321", "Spark332", "Spark341", "Spark350" ],
-          "scala": [ "scala_2.12.15", "scala_2.13.5" ]
+          "profile": [ "Spark350" ],
+          "scala": [ "scala_2.12.18" ]
         }
+      jdk: 11
     secrets: inherit
 
-  testBuilds_2_13_16:
+  noTestBuilds_2_12_18_dbr:
+    uses: sparkutils/building/.github/workflows/run_build.yml@main
+    with:
+      testString: -DskipTests
+      theMatrix: |
+        {
+          "profile": [ "14.3.dbr", "15.4.dbr" ],
+          "scala": [ "scala_2.12.18" ]
+        }
+      jdk: 11
+    secrets: inherit
+
+  testBuilds_2_13_12:
     uses: sparkutils/building/.github/workflows/run_build.yml@main
     with:
       testString: test
       theMatrix: |
         {
           "profile": [ "Spark4" ],
-          "scala": [ "scala_2.13.16" ]
+          "scala": [ "scala_2.13.12" ]
         }
       sparkVersion: 3.5.5
       hadoopVersion: 3
       jdk: 21
       mvnOpts: "-ea -XX:+IgnoreUnrecognizedVMOptions -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3 -Dhttps.protocols=TLSv1.2 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.base/sun.nio.cs=ALL-UNNAMED --add-opens java.base/sun.security.action=ALL-UNNAMED --add-opens java.base/sun.util.calendar=ALL-UNNAMED"
+    secrets: inherit
+
+  noTestBuilds_2_13_12_dbr:
+    uses: sparkutils/building/.github/workflows/run_build.yml@main
+    with:
+      testString: -DskipTests
+      theMatrix: |
+        {
+          "profile": [ "17.3.dbr" ],
+          "scala": [ "scala_2.13.12" ]
+        }
+      jdk: 21
     secrets: inherit
 
   testBuilds_2_13_18:
@@ -59,7 +72,7 @@ jobs:
       testString: test
       theMatrix: |
         {
-          "profile": [ "Spark41" ],
+          "profile": [ "Spark4", "Spark41" ],
           "scala": [ "scala_2.13.18" ]
         }
       sparkVersion: 3.5.5
@@ -68,69 +81,41 @@ jobs:
       mvnOpts: "-ea -XX:+IgnoreUnrecognizedVMOptions -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3 -Dhttps.protocols=TLSv1.2 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.base/sun.nio.cs=ALL-UNNAMED --add-opens java.base/sun.security.action=ALL-UNNAMED --add-opens java.base/sun.util.calendar=ALL-UNNAMED"
     secrets: inherit
 
-  noTestBuilds_2_12_15:
+  noTestBuilds_2_13_18_dbr:
     uses: sparkutils/building/.github/workflows/run_build.yml@main
     with:
       testString: -DskipTests
       theMatrix: |
         {
-          "profile": [ "13.3.dbr", "14.3.dbr", "15.4.dbr"],
-          "scala": [ "scala_2.12.15" ]
+          "profile": [ "18.3.dbr" ],
+          "scala": [ "scala_2.13.18" ]
         }
+      sparkVersion: 3.5.5
+      hadoopVersion: 3
+      jdk: 21
+      mvnOpts: "-ea -XX:+IgnoreUnrecognizedVMOptions -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3 -Dhttps.protocols=TLSv1.2 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.base/sun.nio.cs=ALL-UNNAMED --add-opens java.base/sun.security.action=ALL-UNNAMED --add-opens java.base/sun.util.calendar=ALL-UNNAMED"
     secrets: inherit
 
-  noTestBuilds_2_12_15_and_13_5:
-    uses: sparkutils/building/.github/workflows/run_build.yml@main
-    with:
-      testString: test
-      theMatrix: |
-        {
-          "profile": [ "16.4.dbr"  ],
-          "scala": [ "scala_2.12.15", "scala_2.13.5" ]
-        }
-    secrets: inherit
-
-  publish_2_12_10:
-    needs: [ testBuilds_2_12_10 ]
+  publish_2_12_18:
+    needs: [testBuilds_2_12_18]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
       theMatrix: |
         {
-          "profile": ["Spark3", "Spark313"],
-          "scala": ["scala_2.12.10"]
-        }  
-    secrets: inherit
-
-  publish_2_12_15_and_13_5:
-    needs: [testBuilds_2_12_15_and_13_5, noTestBuilds_2_12_15_and_13_5]
-    uses: sparkutils/building/.github/workflows/publish_build.yml@main
-    with:
-      theMatrix: |
-        {
-          "profile": [ "Spark32", "Spark321", "Spark332", "Spark341", "Spark350", "16.4.dbr" ],
-          "scala": [ "scala_2.12.15", "scala_2.13.5" ]
+          "profile": [ "14.3.dbr", "15.4.dbr", "Spark350" ],
+          "scala": [ "scala_2.12.18" ]
         }
+      jdk: 11
     secrets: inherit
 
-  publish_2_12_15:
-    needs: [noTestBuilds_2_12_15]
+  publish_2_13_12:
+    needs: [ testBuilds_2_13_12 ]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
       theMatrix: |
         {
-          "profile": [ "13.3.dbr", "14.3.dbr", "15.4.dbr" ],
-          "scala": [ "scala_2.12.15" ]
-        }
-    secrets: inherit
-
-  publish_2_13_16:
-    needs: [ testBuilds_2_13_16 ]
-    uses: sparkutils/building/.github/workflows/publish_build.yml@main
-    with:
-      theMatrix: |
-        {
-          "profile": [ "Spark4", "17.3.dbr", "18.3.dbr" ],
-          "scala": [ "scala_2.13.16" ]
+          "profile": [ "17.3.dbr", "Spark4" ],
+          "scala": [ "scala_2.13.12" ]
         }
       sparkVersion: 3.5.5
       hadoopVersion: 3
@@ -144,7 +129,7 @@ jobs:
     with:
       theMatrix: |
         {
-          "profile": [ "Spark41" ],
+          "profile": [ "18.3.dbr", "Spark41" ],
           "scala": [ "scala_2.13.18" ]
         }
       sparkVersion: 3.5.5
