@@ -128,7 +128,7 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scalaCompatVersion}</artifactId>
             <version>${sparkVersion}</version>
-            <scope>provided</scope>
+            <scope>provided</scope> 
         </dependency>
 
         <!-- databricks runtime version is chosen to ease deployment there -->
