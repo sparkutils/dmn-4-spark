@@ -22,7 +22,7 @@ The interfaces, and implementations, are necessarily built using Spark internal 
 
 ## What it is not
 
-An actual DMN engine, this must be provided via an API implementation, currently kogito-4-spark is planned.
+An actual DMN engine, this must be provided via an API implementation, currently kogito-4-spark only.
 
 It also has no opinion on DMN version support, the user of the library is abstracted from the engine choice but that engine choice is still the determining factor of DMN version support.
 
@@ -34,11 +34,11 @@ If you typically build on OSS but deploy to other runtimes the approach is there
 
 ```xml
 <properties>
-    <kogito4SparkVersion>0.1.3</kogito4SparkVersion>
-    <kogito4SparkTestPrefix>3.4.1.oss_</kogito4SparkTestPrefix>
-    <kogito4SparkRuntimePrefix>13.1.dbr_</kogito4SparkRuntimePrefix>
-    <sparkShortVersion>3.4</sparkShortVersion>
-    <scalaCompatVersion>2.12</scalaCompatVersion>    
+    <kogito4SparkVersion>0.1.0-baseline2</kogito4SparkVersion>
+    <kogito4SparkTestPrefix>4.1.oss_</kogito4SparkTestPrefix>
+    <kogito4SparkRuntimePrefix>18.3.dbr_</kogito4SparkRuntimePrefix>
+    <sparkShortVersion>4.1</sparkShortVersion>
+    <scalaCompatVersion>2.13</scalaCompatVersion>    
 </properties>
 
 <dependencies>
@@ -60,6 +60,26 @@ If you typically build on OSS but deploy to other runtimes the approach is there
 The "." at the end of the group id on the kogito4SparkTestPrefix is not a mistake and allows two versions of the same library to be used for different scopes.  It is not advised to develop on a different version of Spark/Scala than you deploy to.
 
 Please refer to the implementation documentation for supported runtimes.
+
+### Connect Support
+
+Starting with Spark 4 and dmn-4-spark 0.1.0 the api is now a separate jar that can be used remotely over Spark 4 Connect.
+
+In order to run against remote clusters the configuration option:
+
+```
+spark.sql.extensions=com.sparkutils.dmn.DMN4SparkExtension
+```
+
+must be used.  In Databricks this also requires using an init script to copy the implementation jars e.g.:
+
+```bash
+#!/bin/bash
+
+cp /Volumes/databricks_ws/default/jars/kogito-4-spark_testshade_4.1.0.oss_4.1_2.13-0.1.0.jar /databricks/jars/kogito-4-spark_testshade_4.1.0.oss_4.1_2.13-0.1.0.jar
+```
+
+When using this approach on a 'standard' shared Databricks cluster the cluster jar must be the _connect versions, based on the dmn-4-spark_api only and not the backend code.
 
 ## Result types
 
