@@ -79,7 +79,7 @@ jobs:
       testString: test
       theMatrix: |
         {
-          "profile": [ "Spark4", "Spark41" ],
+          "profile": [ "Spark41", "Spark42" ],
           "scala": [ "scala_2.13.18" ]
         }
       sparkVersion: 3.5.5
@@ -120,7 +120,7 @@ jobs:
     secrets: inherit
 
   publish_2_13_12:
-    needs: [ testBuilds_2_13_12 ]
+    needs: [ testBuilds_2_13_12, noTestBuilds_2_13_12_dbr ]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
       theMatrix: |
@@ -136,7 +136,7 @@ jobs:
     secrets: inherit
 
   publish_2_13_18:
-    needs: [ testBuilds_2_13_18 ]
+    needs: [ testBuilds_2_13_18, noTestBuilds_2_13_18_dbr ]
     uses: sparkutils/building/.github/workflows/publish_build.yml@main
     with:
       theMatrix: |
