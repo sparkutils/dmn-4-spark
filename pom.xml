@@ -363,7 +363,7 @@
     </profiles>
 
     <properties>
-        <revision>0.1.0-RC5</revision>
+        <revision>0.1.0-RC6</revision>
         <scalaCollectionCompatVersion>2.13.0</scalaCollectionCompatVersion>
         <scalaMeterVersion>0.0.2</scalaMeterVersion>
         <scalaMeterGroup>com.sparkutils</scalaMeterGroup>

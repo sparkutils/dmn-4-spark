@@ -26,6 +26,8 @@ object DMNExpression {
  * Injects the context from input providers, calls the engine, and invokes result providers
  */
 trait DMNExpression extends Expression {
+  // #12 - projections ProjectExec using dmn should only evaluate / create once, no push down or direct re-use will occur
+  final override lazy val deterministic: Boolean = false
 
   def dmnRepository: DMNRepository
 

@@ -79,7 +79,8 @@ must be used.  In Databricks this also requires using an init script to copy the
 cp /Volumes/databricks_ws/default/jars/kogito-4-spark_testshade_4.1.0.oss_4.1_2.13-0.1.0.jar /databricks/jars/kogito-4-spark_testshade_4.1.0.oss_4.1_2.13-0.1.0.jar
 ```
 
-When using this approach on a 'standard' shared Databricks cluster the cluster jar must be the _connect versions, based on the dmn-4-spark_api only and not the backend code.
+When using this approach on a 'standard' shared Databricks cluster the cluster jar must be the _connect versions, based on the dmn-4-spark_api only and not the backend code.  
+This would typically be a compile dependency on dmn-4-spark_api and provided scope on kogito-4-spark.
 
 ## Result types
 
