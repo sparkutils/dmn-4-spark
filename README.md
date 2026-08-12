@@ -79,8 +79,11 @@ must be used.  In Databricks this also requires using an init script to copy the
 cp /Volumes/databricks_ws/default/jars/kogito-4-spark_testshade_4.1.0.oss_4.1_2.13-0.1.0.jar /databricks/jars/kogito-4-spark_testshade_4.1.0.oss_4.1_2.13-0.1.0.jar
 ```
 
-When using this approach on a 'standard' shared Databricks cluster the cluster jar must be the _connect versions, based on the dmn-4-spark_api only and not the backend code.  
-This would typically be a compile dependency on dmn-4-spark_api and provided scope on kogito-4-spark.
+When using this approach on a 'standard' shared Databricks cluster the "cluster library" jar must be the _connect versions, based on the dmn-4-spark_connect_api only and not the backend code.  
+This would typically be a compile dependency on dmn-4-spark_connect_api and provided scope on kogito-4-spark for testing.
+
+Alternatively, the compile time dependency can be against dmn-4-spark_api with the runtime provided by either
+dmn-4-spark_api_stub for Connect usage, or via dmn-4-spark directly for Classic server usage. 
 
 ## Result types
 
@@ -88,7 +91,8 @@ As DMN can return anything, which the api supports, there are two key issues in 
 
 ### Multiple Result Types
 
-If, when using evaluateAll semantics, you have multiple return types each of them can be different.  In order to write out exact types the result provider DDL must be a struct with each result type under the appropriate decision name. e.g. for a Kogito result:
+If, when using evaluateAll semantics, you have multiple return types each of them can be different.  In order to write
+out exact types the result provider DDL must be a struct with each result type under the appropriate decision name. e.g. for a Kogito result:
 
 ```json
 [{
