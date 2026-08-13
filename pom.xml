@@ -364,7 +364,7 @@
     </profiles>
 
     <properties>
-        <revision>0.1.0-RC8</revision>
+        <revision>0.1.0</revision>
         <scalaCollectionCompatVersion>2.13.0</scalaCollectionCompatVersion>
         <scalaMeterVersion>0.0.2</scalaMeterVersion>
         <scalaMeterGroup>com.sparkutils</scalaMeterGroup>
@@ -399,10 +399,10 @@
         <scalatestMavenPluginVersion>2.2.0</scalatestMavenPluginVersion>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <testingVersion>0.0.1-RC5</testingVersion>
+        <testingVersion>0.0.1</testingVersion>
 
-        <shimCompilationVersion>0.3.0-RC1</shimCompilationVersion>
-        <shimRuntimeVersion>0.3.0-RC1</shimRuntimeVersion>
+        <shimCompilationVersion>0.3.0</shimCompilationVersion>
+        <shimRuntimeVersion>0.3.0</shimRuntimeVersion>
 
         <framelessCoreCompatVersion></framelessCoreCompatVersion>
         <framelessOrg>org.typelevel</framelessOrg>

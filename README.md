@@ -34,7 +34,7 @@ If you typically build on OSS but deploy to other runtimes the approach is there
 
 ```xml
 <properties>
-    <kogito4SparkVersion>0.1.0-baseline2</kogito4SparkVersion>
+    <kogito4SparkVersion>0.1.0</kogito4SparkVersion>
     <kogito4SparkTestPrefix>4.1.oss_</kogito4SparkTestPrefix>
     <kogito4SparkRuntimePrefix>18.3.dbr_</kogito4SparkRuntimePrefix>
     <sparkShortVersion>4.1</sparkShortVersion>
