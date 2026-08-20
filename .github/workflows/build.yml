@@ -15,14 +15,14 @@ env:
 
 jobs:
 
-  testBuilds_2_12_18:
+  testBuilds_2_12_18_and_13_5:
     uses: sparkutils/building/.github/workflows/run_build.yml@main
     with:
       testString: test
       theMatrix: |
         {
           "profile": [ "Spark350" ],
-          "scala": [ "scala_2.12.18" ]
+          "scala": [ "scala_2.12.18", "scala_2.13.5"]
         }
       jdk: 11
       mvnCliOpts: *MAVEN_CLI_OPTS
@@ -89,6 +89,17 @@ jobs:
       mvnOpts: *MAVEN_OPTS_21
     secrets: inherit
 
+  noTestBuilds_2_12_18_and_13_5:
+    uses: sparkutils/building/.github/workflows/run_build.yml@main
+    with:
+      testString: test
+      theMatrix: |
+        {
+          "profile": [ "16.4.dbr"  ],
+          "scala": [ "scala_2.12.18", "scala_2.13.5" ]
+        }
+    secrets: inherit
+
   noTestBuilds_2_13_18_dbr:
     uses: sparkutils/building/.github/workflows/run_build.yml@main
     with:
@@ -111,7 +122,7 @@ jobs:
     with:
       theMatrix: |
         {
-          "profile": [ "14.3.dbr", "15.4.dbr", "Spark350" ],
+          "profile": [ "14.3.dbr", "15.4.dbr" ],
           "scala": [ "scala_2.12.18" ]
         }
       jdk: 11
@@ -133,6 +144,17 @@ jobs:
       jdk: 21
       mvnCliOpts: *MAVEN_CLI_OPTS
       mvnOpts: *MAVEN_OPTS_21
+    secrets: inherit
+
+  publish_2_12_18_and_13_5:
+    needs: [testBuilds_2_12_18_and_13_5, noTestBuilds_2_12_18_and_13_5]
+    uses: sparkutils/building/.github/workflows/publish_build.yml@main
+    with:
+      theMatrix: |
+        {
+          "profile": [ "Spark350", "16.4.dbr" ],
+          "scala": [ "scala_2.12.18", "scala_2.13.5" ]
+        }
     secrets: inherit
 
   publish_2_13_18:
